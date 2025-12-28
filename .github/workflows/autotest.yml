@@ -446,7 +446,7 @@ jobs:
           YSYX_HOME: ${{ needs.setup.outputs.YSYX_HOME }}
           cache-key: ${{ needs.setup.outputs.cache-key }}
           MAKEFLAGS: ${{ needs.setup.outputs.MAKEFLAGS }}
-          
+
       - name: Debug monitor.py
         run: |
           echo "=== 调试信息 ==="
@@ -467,25 +467,25 @@ jobs:
           KEY=$(head -c 5 /dev/urandom | base32)
           python $MONITOR_PY --middle="Hello, AbstractMachine!" --good=$KEY make ARCH=riscv32e-ysyxsoc -C $YSYX_HOME/am-kernels/kernels/hello run mainargs=$KEY
 
-  # cpu-tests:
-  #   needs: setup
-  #   runs-on: ubuntu-22.04
-  #   steps:
-  #     - uses: actions/checkout@v4
-  #       with:
-  #         fetch-depth: 0
+  cpu-tests:
+    needs: setup
+    runs-on: ubuntu-22.04
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
 
-  #     - name: Common operations
-  #       uses: ./.github/actions/common
-  #       with:
-  #         YSYX_HOME: ${{ needs.setup.outputs.YSYX_HOME }}
-  #         cache-key: ${{ needs.setup.outputs.cache-key }}
-  #         MAKEFLAGS: ${{ needs.setup.outputs.MAKEFLAGS }}
+      - name: Common operations
+        uses: ./.github/actions/common
+        with:
+          YSYX_HOME: ${{ needs.setup.outputs.YSYX_HOME }}
+          cache-key: ${{ needs.setup.outputs.cache-key }}
+          MAKEFLAGS: ${{ needs.setup.outputs.MAKEFLAGS }}
 
-  #     - name: cpu-tests
-  #       run: |
-  #         make ARCH=riscv32e-ysyxsoc -C $YSYX_HOME/am-kernels/tests/cpu-tests run ALL=dummy
-  #         make ARCH=riscv32e-ysyxsoc -C $YSYX_HOME/am-kernels/tests/cpu-tests run
+      - name: cpu-tests
+        run: |
+          make ARCH=riscv32e-ysyxsoc -C $YSYX_HOME/am-kernels/tests/cpu-tests run ALL=dummy
+          make ARCH=riscv32e-ysyxsoc -C $YSYX_HOME/am-kernels/tests/cpu-tests run
 
   # riscv-tests:
   #   needs: setup
