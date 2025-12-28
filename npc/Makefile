@@ -19,14 +19,14 @@ $(shell mkdir -p $(BUILD_DIR))
 # SRC_AUTO_BIND = $(abspath $(BUILD_DIR)/auto_bind.cpp) 
 # $(SRC_AUTO_BIND): $(NXDC_FILES)
 # 	python3 $(NVBOARD_HOME)/scripts/auto_pin_bind.py $^ $@ 
-#/home/huang/ysyx-workbench/npc/vsrc -name "*.v"
+#$(YSYX_HOME)/npc/vsrc -name "*.v"
 # project source
 ##VSRCS = $(shell find $(abspath ./vsrc) -name "*.v") \
 		$(shell find $(abspath ../ysyxSoC/perip) -name "*.v") \
-		$(shell find $(abspath /home/huang/ysyx-workbench/ysyxSoC/ready-to-run/D-stage) -name "*.v")
-VSRCS = $(shell find /home/huang/ysyx-workbench/npc/vsrc -name "*.v") \
-        $(shell find /home/huang/ysyx-workbench/ysyxSoC/perip -name "*.v") \
-        $(shell find /home/huang/ysyx-workbench/ysyxSoC/ready-to-run/D-stage -name "*.v")
+		$(shell find $(abspath $(YSYX_HOME)/ysyxSoC/ready-to-run/D-stage) -name "*.v")
+VSRCS = $(shell find $(YSYX_HOME)/npc/vsrc -name "*.v") \
+        $(shell find $(YSYX_HOME)/ysyxSoC/perip -name "*.v") \
+        $(shell find $(YSYX_HOME)/ysyxSoC/ready-to-run/D-stage -name "*.v")
 
 CSRCS = $(shell find $(abspath ./csrc) -name "*.c" -or -name "*.cc" -or -name "*.cpp") 
 # 所有c++文件，其实就是sim_main.cpp和auto_bind.cpp
@@ -37,13 +37,13 @@ CSRCS = $(shell find $(abspath ./csrc) -name "*.c" -or -name "*.cc" -or -name "*
 
 
 INCFLAGS = $(addprefix -I, $(INC_PATH))
-CXXFLAGS += $(INCFLAGS) -I /home/huang/ysyx-workbench/nemu/tools/capstone/repo/include -DTOP_NAME="\"V$(TOPNAME)\""
-LDFLAGS += -L /home/huang/ysyx-workbench/nemu/tools/capstone/repo/ -lcapstone -lSDL2 -lSDL2_image
+CXXFLAGS += $(INCFLAGS) -I $(YSYX_HOME)/nemu/tools/capstone/repo/include -DTOP_NAME="\"V$(TOPNAME)\""
+LDFLAGS += -L $(YSYX_HOME)/nemu/tools/capstone/repo/ -lcapstone -lSDL2 -lSDL2_image
 
-#IMAGE ?= /home/huang/ysyx-workbench/npc/new2.bin
+#IMAGE ?= $(YSYX_HOME)/npc/new2.bin
 #IMAGE ?= /home/huang/test_our/new.bin
-#IMAGE ?= /home/huang/ysyx-workbench/ysyxSoC/ready-to-run/D-stage/hello-minirv-ysyxsoc.bin
-IMAGE ?= /home/huang/ysyx-workbench/ysyxSoC/ready-to-run/D-stage/new.bin
+#IMAGE ?= $(YSYX_HOME)/ysyxSoC/ready-to-run/D-stage/hello-minirv-ysyxsoc.bin
+IMAGE ?= $(YSYX_HOME)/ysyxSoC/ready-to-run/D-stage/new.bin
 $(BIN): $(VSRCS) $(CSRCS) #$(NVBOARD_ARCHIVE)
 	@rm -rf $(OBJ_DIR)
 	$(VERILATOR) $(VERILATOR_CFLAGS) \
