@@ -336,13 +336,13 @@ jobs:
           echo -e "\n=== .timestamp 文件 ==="
           ls -la $NPC_HOME/.timestamp 2>/dev/null || echo ".timestamp 不存在"
 
-      - name: Copy first Verilog file to build
+      - name: Copy first Verilog file to build #copy第一个verilog文件到build目录
         if: steps.cache-dir.outputs.cache-hit != 'true'
         run: |
           mkdir -p $NPC_HOME/build
           
           # 查找第一个文件
-          first_file=$(find $NPC_HOME -name "*.v" -o -name "*.sv" 2>/dev/null | head -1)
+          first_file=$(find $NPC_HOME -name "ysyx_*.v" -o -name "*ysyx_.sv" 2>/dev/null | head -1)
           
           if [ -z "$first_file" ]; then
             echo "❌ 未找到任何 Verilog 文件"
@@ -432,25 +432,25 @@ jobs:
           name: verilog
           path: ${{ steps.vfilename.outputs.VFILE }}
 
-  # hello:
-  #   needs: setup
-  #   runs-on: ubuntu-22.04
-  #   steps:
-  #     - uses: actions/checkout@v4
-  #       with:
-  #         fetch-depth: 0
+  hello:
+    needs: setup
+    runs-on: ubuntu-22.04
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
 
-  #     - name: Common operations
-  #       uses: ./.github/actions/common
-  #       with:
-  #         YSYX_HOME: ${{ needs.setup.outputs.YSYX_HOME }}
-  #         cache-key: ${{ needs.setup.outputs.cache-key }}
-  #         MAKEFLAGS: ${{ needs.setup.outputs.MAKEFLAGS }}
+      - name: Common operations
+        uses: ./.github/actions/common
+        with:
+          YSYX_HOME: ${{ needs.setup.outputs.YSYX_HOME }}
+          cache-key: ${{ needs.setup.outputs.cache-key }}
+          MAKEFLAGS: ${{ needs.setup.outputs.MAKEFLAGS }}
 
-  #     - name: hello
-  #       run: |
-  #         KEY=$(head -c 5 /dev/urandom | base32)
-  #         python $MONITOR_PY --middle="Hello, AbstractMachine!" --good=$KEY make ARCH=riscv32e-ysyxsoc -C $YSYX_HOME/am-kernels/kernels/hello run mainargs=$KEY
+      - name: hello
+        run: |
+          KEY=$(head -c 5 /dev/urandom | base32)
+          python $MONITOR_PY --middle="Hello, AbstractMachine!" --good=$KEY make ARCH=riscv32e-ysyxsoc -C $YSYX_HOME/am-kernels/kernels/hello run mainargs=$KEY
 
   # cpu-tests:
   #   needs: setup
