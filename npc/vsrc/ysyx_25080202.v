@@ -1,934 +1,1109 @@
-module ysyx_25080202_CSR(
-    input clk,
-    input rst,
-    input I_csrrs,
-    input I_csrrw,                    //判断指令是不是 csrrw
-    input [11:0] csr_addr,            // SR 地址 = inst[31:20]
-    input [31:0] csr_wdata,           //要写进CSR的数据
-    output reg [31:0] csr_rdata      //从CSR寄存器读到的数据
+module ysyx_25080202(
+	input 			    clock,
+	input 			    reset,
+	
+	output			    io_ifu_reqValid,	
+	output  [31:0]	io_ifu_addr,
+	input			      io_ifu_respValid,		
+	input	  [31:0]	io_ifu_rdata,
+
+	output			    io_lsu_reqValid,	
+	output	[31:0]	io_lsu_addr,
+	output	[ 1:0]	io_lsu_size,
+	output			    io_lsu_wen,
+	output	[31:0]	io_lsu_wdata,
+	output	[ 3:0]	io_lsu_wmask,
+	input			      io_lsu_respValid,		
+	input	  [31:0]	io_lsu_rdata
+);
+
+wire [31:0] ifu_pc,idu_pc,exu_pc,mem_pc;
+wire [31:0] inst;
+wire [ 3:0] idu_lsu_cnt,exu_lsu_cnt;
+wire        idu_wbu_cnt,exu_wbu_cnt,mem_wbu_cnt;
+wire 	      idu_ebreak,exu_ebreak,mem_ebreak;
+wire [ 3:0] idu_waddr,exu_waddr,mem_waddr;
+wire [31:0] exu_wdata,mem_wdata;
+wire [ 3:0] alu_cnt;
+wire [ 5:0] ins_cnt;
+wire [ 2:0] idu_csr_cnt,exu_csr_cnt;
+wire [ 3:0] pc_cnt;
+wire [ 3:0] raddr1,raddr2;
+wire [31:0] rdata1,rdata2;
+wire [31:0] addr_lsu;
+wire [31:0] data_store;
+wire [31:0] imm;
+wire [11:0] csr_imm;
+wire [31:0] csr_data;
+wire 	      br_taken;
+wire 	      auipc,lui,load,jalr,jal;
+wire 	      ControlHazard;
+
+wire ifu_idu_valid,idu_exu_valid,exu_mem_valid,mem_wbu_valid,exu_csr_valid;
+wire idu_ifu_ready,exu_idu_ready,mem_exu_ready,wbu_mem_ready,csr_exu_ready;
+wire wbu_ifu_retire,csr_ifu_retire;
+
+wire [31:0] ret_addr;
+assign ret_addr = (mem_waddr == raddr1) ? mem_wdata : rdata1;
+
+ysyx_24080018_IFU ifu(
+	.clk		        (clock),
+	.reset		      (reset),
+	.ifu_idu_valid	(ifu_idu_valid),
+	.idu_ifu_ready	(idu_ifu_ready),
+	.wbu_ifu_retire (wbu_ifu_retire),
+	.csr_ifu_retire (csr_ifu_retire),
+	.i_ControlHazard(ControlHazard),
+	.i_imm		      (imm),
+	.i_br_taken	    (br_taken),
+	.i_pc_idu	      (idu_pc),
+	.i_ret		      (ret_addr),
+	.i_pc_cnt	      (pc_cnt),
+	.o_inst		      (inst),
+	.o_pc		        (ifu_pc),
+	.o_ifu_reqValid (io_ifu_reqValid),
+	.o_ifu_addr	    (io_ifu_addr),
+	.i_ifu_respValid(io_ifu_respValid),
+	.i_ifu_rdata	  (io_ifu_rdata)
+);
+
+ysyx_24080018_IDU idu(
+	.clk		        (clock),
+	.reset		      (reset),
+	.ifu_idu_valid	(ifu_idu_valid),
+	.idu_ifu_ready	(idu_ifu_ready),
+	.idu_exu_valid	(idu_exu_valid),
+	.exu_idu_ready	(exu_idu_ready),
+	.i_inst		      (inst),
+	.i_pc		        (ifu_pc),
+	.o_pc		        (idu_pc),
+	.o_lsu_cnt	    (idu_lsu_cnt),
+	.o_wbu_cnt	    (idu_wbu_cnt),
+	.o_alu_cnt	    (alu_cnt),
+	.o_ins_cnt	    (ins_cnt),
+	.o_csr_cnt	    (idu_csr_cnt),
+	.o_pc_cnt	      (pc_cnt),
+	.o_auipc 	      (auipc),
+	.o_lui		      (lui),
+	.o_ebreak	      (idu_ebreak),
+	.o_jalr		      (jalr),
+	.o_jal 		      (jal),
+	.o_load		      (load),
+	.o_rd  		      (idu_waddr),
+	.o_rs1 		      (raddr1),
+	.o_rs2 		      (raddr2),
+	.o_csr_imm	    (csr_imm),
+	.o_imm		      (imm),
+	.o_ControlHazard(ControlHazard)
+);
+
+ysyx_24080018_EXU exu(
+	.clk	         (clock),
+	.reset	       (reset),
+	.idu_exu_valid (idu_exu_valid),
+	.exu_idu_ready (exu_idu_ready),
+	.exu_mem_valid (exu_mem_valid),
+	.mem_exu_ready (mem_exu_ready),
+	.exu_csr_valid (exu_csr_valid),
+	.csr_exu_ready (csr_exu_ready),
+	.o_pc	         (exu_pc),
+	.o_alu_result  (exu_wdata),
+	.o_br_taken    (br_taken),
+	.o_data_store  (data_store),
+	.o_addr_lsu    (addr_lsu),
+	.o_waddr       (exu_waddr),
+	.o_lsu_cnt     (exu_lsu_cnt),
+	.o_ebreak      (exu_ebreak),
+	.o_wbu_cnt     (exu_wbu_cnt),
+	.o_csr_cnt     (exu_csr_cnt),
+	.i_pc	         (idu_pc),
+	.i_wbu_cnt     (idu_wbu_cnt),
+	.i_ebreak      (idu_ebreak),
+	.i_lsu_cnt		 (idu_lsu_cnt),
+	.i_waddr			 (idu_waddr),
+	.i_pc_cnt 		 (pc_cnt),
+	.i_alu_cnt		 (alu_cnt),
+	.i_ins_cnt		 (ins_cnt),
+	.i_csr_cnt		 (idu_csr_cnt),
+	.i_auipc			 (auipc),
+	.i_lui 				 (lui),
+	.i_load				 (load),
+	.i_jalr				 (jalr),
+	.i_jal 				 (jal),
+	.i_imm 				 (imm),
+	.i_csr_data		 (csr_data),
+	.i_rdata1	 		 (rdata1),
+	.i_rdata2	 		 (rdata2),
+	.i_raddr1	 		 (raddr1),
+	.i_raddr2	 		 (raddr2),
+	.i_bypass_waddr(mem_waddr),
+	.i_bypass_wdata(mem_wdata)
 
 );
 
-    reg [63:0] mcycle;
- 
-
-    localparam [31:0] MVENDORID = 32'h79737978;  // "ysyx"
-    localparam [31:0] MARCHID   = 32'h017EB18A;  // 学号部分
-    //
-    always @(*) begin
-        //csr_rdata = 32'b0;
-        if(I_csrrs||I_csrrw) begin
-        case (csr_addr)
-            12'hB00: csr_rdata = mcycle[31:0];
-            12'hB80: csr_rdata = mcycle[63:32];
-            12'hF11: csr_rdata = MVENDORID;
-            12'hF12: csr_rdata = MARCHID;
-            default: csr_rdata = 32'b0;
-        endcase
-        end else begin
-           csr_rdata = 32'b0;
-        end
-    end
-
-    // ========= 时序逻辑：写 =========
-    always @(posedge clk) begin
-        if (rst) begin
-            mcycle <= 64'b0;
-        end else begin
-            mcycle <= mcycle + 1;
-
-            if (I_csrrw) begin
-                case (csr_addr)
-                    12'hB00: mcycle[31:0] <= csr_wdata;
-                    12'hB80: mcycle[63:32] <= csr_wdata;
-                    12'hF11, 12'hF12: ;  // 只读 CSR，不允许写
-                    default: ;
-                endcase
-            end else if (I_csrrs && csr_wdata != 32'b0) begin
-                case (csr_addr)
-                    12'hB00: mcycle[31:0] <= mcycle[31:0] | csr_wdata;
-                    12'hB80: mcycle[63:32] <= mcycle[63:32] | csr_wdata;
-                    12'hF11, 12'hF12: ;  // 只读 CSR
-                    default: ;
-                endcase
-            end
-        end
-    end
-
-endmodule
-module ysyx_25080202_EXU(
-    input R_TYPE,
-    input I_TYPE,
-    input S_TYPE,
-    input B_TYPE,
-    input J_TYPE,
-    input U_TYPE,
-    input R_add,
-    input I_add,
-    input I_jalr,
-    input l_lbu,
-    input l_lw,
-    input I_csrrw,
-    input I_csrrs,
-    input [31:0] rdata_1,
-    input [31:0] rdata_2,
-    input [31:0] imm,
-    input [31:0] pc,
-    output reg [31:0] csr_wdata,
-    output reg [31:0] ALU_OUT
-);
-    reg [31:0] A;
-    reg [31:0] B;
-
-    always @(*) begin 
-        A = 0;
-        B = 0;
-        ALU_OUT = 0;
-        if(I_csrrw |I_csrrs) begin
-            csr_wdata = rdata_1;
-        end
-        else begin 
-            csr_wdata = 32'b0;
-        end
-
-        if (R_TYPE | I_TYPE | S_TYPE) begin
-            A = rdata_1;
-        end
-        else if (B_TYPE | J_TYPE) begin 
-            A = pc;
-        end
-        else if (U_TYPE) begin 
-            A = 32'b0;
-        end
-
-        if (R_TYPE) begin 
-            B = rdata_2;
-        end 
-        else if (S_TYPE | I_TYPE | B_TYPE | U_TYPE) begin
-            B = imm;
-        end
-
-        if (R_add | I_add | I_jalr | U_TYPE | S_TYPE | l_lbu|l_lw) begin 
-            ALU_OUT = A + B;
-        end else begin
-            ALU_OUT = 0;
-        end
-        // $display("A = 0x%08x\n",A);//debug
-        // $display("B = 0x%08x\n",B);//debug
-        //if(I_jalr) begin     
-          //  $display("ALU_OUT = 0x%08x\n",ALU_OUT);//debug
-        // $display("I_TYPE = %d\n",I_TYPE);//debug
-        //end 
-    end
-    
-endmodule
-module ysyx_25080202_IDU(
-  input [31:0] inst,
-  output reg R_TYPE,
-  output reg I_TYPE_ARITH,
-  output reg L_TYPE_LOAD,
-  output reg S_TYPE,
-  output reg U_TYPE,
-  output reg I_TYPE,
-  output reg MemWEn,
-  output reg B_TYPE,
-  output reg J_TYPE,
-  output reg I_jalr,
-  output reg U_lui,
-  output reg R_add,
-  output reg l_lw,
-  output reg l_lbu,
-  output reg I_add,
-  output reg S_sw,
-  output reg S_sb,
-  output reg I_ebreak,
-  output reg I_csrrw,
-  output reg I_csrrs,
-  output reg [11:0]csr_addr,
-  output reg [31:0] imm,
-  output reg [4:0]r1,
-  output reg [4:0]r2,
-  output reg [4:0]rd,
-  output reg [3:0]wmask
-); 
-  wire [6:0] opcode = inst[6:0];
-  wire [2:0] funct3 = inst[14:12];
-  wire [6:0] funct7 = inst[31:25];
-
-  wire [31:0] immI = {{20{inst[31]}},inst[31:20]};
-  wire [31:0] immS = {{20{inst[31]}},inst[31:25],inst[11:7]};
-  wire [31:0] immB = {{20{inst[31]}},inst[7],inst[30:25],inst[11:8],1'b0};
-  wire [31:0] immU = {inst[31:12],12'b000000000000};
-  wire [31:0] immJ = {{12{inst[31]}},inst[19:12],inst[20],inst[30:21],1'b0};
-  always @(*) begin
-    R_TYPE = 0;
-    I_TYPE_ARITH = 0;
-    L_TYPE_LOAD = 0;
-    S_TYPE = 0;
-    MemWEn = 0;
-    B_TYPE = 0;
-    J_TYPE = 0;
-    I_jalr = 0;
-    U_lui = 0;
-    R_add = 0;
-    l_lw = 0;
-    l_lbu = 0;
-    I_add = 0;
-    S_sw = 0;
-    S_sb = 0;
-    imm = 0;
-    I_TYPE = 0;  
-    U_TYPE = 0;
-    I_csrrw = 0;
-    I_csrrs = 0;
-    wmask = 4'b0;
-    csr_addr = inst[31:20];
-    // $display("CSR read addr = %h", csr_addr);
-    r1 = inst[19:15];
-    r2 = inst[24:20];
-    rd = inst[11:7];
-    // $display("inst: %b", inst);
-    // $display("opcode: %b", opcode);
-    case (opcode)
-        //R_type指令 (add)
-        7'b0110011:begin 
-            R_TYPE = 1;
-            if(funct3 == 3'b000 && funct7 == 7'b0000000) begin 
-                R_add = 1;
-            end 
-        end
-        // I-type算术指令 (addi)//&& funct7 == 7'b0000000
-        7'b0010011:begin
-            I_TYPE_ARITH = 1;
-            if(funct3 == 3'b000) begin 
-                I_add = 1;
-            end
-        end
-        7'b0000011:begin
-            L_TYPE_LOAD = 1;
-            if(funct3 == 3'b010) begin
-                l_lw = 1;//LW
-            end else if(funct3 == 3'b100) begin 
-                l_lbu =1;//LBU
-            end
-        end 
-        7'b0100011:begin
-            S_TYPE = 1;
-            MemWEn = 1;
-            if(funct3 == 3'b010) begin
-                S_sw = 1;//SW
-                wmask = 4'b1111;
-            end
-            if(funct3 == 3'b000) begin 
-                S_sb = 1;//SB
-                wmask =4'b0001;
-            end
-        end
-        7'b1100011:begin
-            B_TYPE = 1;
-        end 
-        7'b1101111:begin
-            J_TYPE = 1;
-        end
-        7'b1100111:begin
-            I_jalr =1;//JALR
-        end
-        7'b0110111:begin
-            U_lui = 1;//LUI
-        end
-        7'b1110011:begin
-            if(funct3 == 3'b001) begin 
-                I_csrrw = 1;
-            end else if(funct3 == 3'b010) begin
-                I_csrrs = 1;
-            end else if(inst[31:7] == 25'b0000000000010000000000000) begin
-                I_ebreak = 1;
-            end
-        end
-        default :begin
-             //$display("Unknown opcode: %d", opcode);
-        end 
-    endcase
-    //$display("addi_TYPE: %b", I_add);//调试
-    I_TYPE = I_TYPE_ARITH | L_TYPE_LOAD | I_jalr;
-    U_TYPE = U_lui;
-    // if(I_csrrw == 1) begin
-    //     $display("IDU: inst=%h opcode=%b I_csrrw=%b csr_addr=%h", inst, opcode, I_csrrw, csr_addr);
-    // end
-    case(1'b1)
-      I_TYPE: imm = immI;
-      S_TYPE: imm = immS;
-      B_TYPE: imm = immB;
-      U_TYPE: imm = immU;
-      J_TYPE: imm = immJ;
-      default: begin
-            imm = 0;
-      end
-    endcase
-
-  end
-
-endmodule
-module ysyx_25080202_IFU(
-    input  clk,
-    input  rst,
-    input  [31:0] PC,
-    input pc_valid,
-    input lsu_ready,
-    input wbu_ready,
-    output reg [31:0] inst,
-    output reg ifu_valid,
-    output reg ifu_wen,
-    output reg        ifu_reqValid,
-    input             ifu_respValid,
-    output reg [31:0] ifu_raddr,
-    input  [31:0]     ifu_rdata
-);
-    localparam IFU_IDLE = 1'b0;
-    localparam IFU_WAIT = 1'b1;
-    reg ifu_state;
-
-    always @(posedge clk) begin
-        if (rst) begin
-            ifu_state    <= IFU_IDLE;
-            inst         <= 32'h0; // NOP
-            ifu_valid <= 1'b0;
-            ifu_raddr <= 32'h30000000;
-            ifu_reqValid <= 1'b0;
-            //ifu_wen <=1'b0;
-        end else begin
-            case (ifu_state)
-                IFU_IDLE: begin
-                    if(pc_valid) begin 
-                        ifu_state <= IFU_WAIT; // 发请求后进入 WAIT
-                        ifu_raddr <= PC;
-                        ifu_reqValid <=1'b1;
-                    end 
-                    else begin 
-                        ifu_state <=IFU_IDLE;
-                        //if(wbu_ready || lsu_ready && ifu_valid) begin
-                        if((wbu_ready || lsu_ready)&& ifu_valid) begin
-                            ifu_valid <= 1'b0;
-                        end
-                    end
-                end
-                IFU_WAIT: begin
-                    if (ifu_reqValid) begin
-                        ifu_reqValid <= 1'b0;
-                    end                    
-                    if (ifu_respValid) begin
-                        ifu_state <= IFU_IDLE;
-                        ifu_valid <= 1'b1;
-                        inst <= ifu_rdata;
-                    end
-                end
-                default :begin
-                    ifu_state <= IFU_IDLE;
-                    end
-            endcase
-        end
-    end
-endmodule
-
-module ysyx_25080202_LSU(
-    input             rst,
-    input             clk,
-    input      [31:0] R2_data,
-    input      [31:0] ALU_OUT,
-    //input      [31:0] PC_plus_4,
-    input             l_lw,
-    input             l_lbu,
-    input             S_sb,
-    input             S_sw,
-    input             R_TYPE,
-    input             I_TYPE_ARITH,
-    input             I_TYPE,
-    input             U_TYPE,
-    input             J_TYPE,
-    input             I_csrrw,
-    input      [31:0] CSR_RDATA,
-    input      [4:0]  rd,
-    input [3:0] wmask,//IDU传进来的
-    // SimpleBus 接口
-    input ifu_valid,
-    input wbu_ready,
-    output reg lsu_valid,
-    output reg lsu_reqValid,
-    input  lsu_respValid,
-    output reg [31:0] lsu_addr,
-    output reg lsu_wen,
-    output reg [31:0] lsu_wdata,
-    output reg [3:0]  lsu_wmask,
-    input  [31:0] lsu_rdata,
-    output reg lsu_ready,
-    output lsu_working,
-    output reg [1:0] io_lsu_size,
-    // 写回寄存器文件
-    output reg [31:0] RegWriteData
+ysyx_24080018_LSU lsu(
+	.clk					   (clock),
+	.reset				   (reset),
+	.exu_mem_valid   (exu_mem_valid),
+	.mem_exu_ready   (mem_exu_ready),
+	.mem_wbu_valid   (mem_wbu_valid),
+	.wbu_mem_ready   (wbu_mem_ready),
+	.o_waddr			   (mem_waddr),
+	.o_wdata			   (mem_wdata),
+	.o_ebreak			   (mem_ebreak),
+	.o_pc					   (mem_pc),
+	.o_wbu_cnt		   (mem_wbu_cnt),
+	.i_pc					   (exu_pc),
+	.i_wbu_cnt		   (exu_wbu_cnt),
+	.i_ebreak			   (exu_ebreak),
+	.i_waddr			   (exu_waddr),
+	.i_wdata			   (exu_wdata),
+	.i_lsu_cnt		   (exu_lsu_cnt),
+	.i_lsu_wdata     (data_store),
+	.i_lsu_addr      (addr_lsu),
+	.o_lsu_reqValid	 (io_lsu_reqValid),
+	.o_lsu_addr    	 (io_lsu_addr),
+	.o_lsu_size    	 (io_lsu_size),
+	.o_lsu_wen     	 (io_lsu_wen),
+	.o_lsu_wdata	 	 (io_lsu_wdata),
+	.o_lsu_wmask	 	 (io_lsu_wmask),
+	.i_lsu_respValid (io_lsu_respValid),
+	.i_lsu_rdata		 (io_lsu_rdata)
 );
 
-    // 状态机
-    localparam LSU_IDLE = 1'b0;
-    localparam LSU_WAIT = 1'b1;
-    reg state;
-
-    // 写数据与掩码（组合逻辑）
-    wire [31:0] deviation_rdata = lsu_rdata >> (lsu_addr[1:0] * 8);
-    // reg [31:0] MemWriteData;
-    //reg [3:0]  wmask;
-
-
-    //assign lsu_addr  = ALU_OUT;
-    wire wen  = S_sb | S_sw;
-    wire ren  = l_lbu|l_lw; 
-    assign lsu_working = ren | wen;
-
-    // 状态迁移（时序逻辑）
-    always @(posedge clk) begin
-        if (rst) begin
-            state        <= LSU_IDLE;
-            lsu_ready    <= 1'b0;
-            lsu_valid    <= 1'b0;
-            lsu_reqValid <= 1'b0;
-            lsu_wen      <= 1'b0;
-            RegWriteData <=32'b0;
-            io_lsu_size <=2'b0;
-        end else begin
-            case (state)
-                LSU_IDLE: begin
-                        if (ifu_valid && (wen || ren)) begin
-                          //$display("[LSU][%0t] REQ: addr=0x%08h wen=%b ren=%b wdata=0x%08h wmask=0x%1h ALU_OUT=0x%08h", 
-         //$time, ALU_OUT, wen, ren, R2_data, wmask, ALU_OUT);
-                          state <= LSU_WAIT;
-                          lsu_ready<=1'b1;
-                          lsu_wen<=wen;
-                          //lsu_wdata<= R2_data;
-                          lsu_addr <= ALU_OUT;
-                          lsu_wmask <= (wmask << ALU_OUT[1:0]);
-                          lsu_wdata <= (R2_data << (8 * ALU_OUT[1:0]));
-                          //lsu_wdata<= R2_data;
-                          lsu_reqValid <= 1'b1;
-                          if(S_sb || l_lbu) begin
-                            io_lsu_size <= 2'b00;
-                          end
-                          else if(S_sw || l_lw) begin 
-                            io_lsu_size <=2'b10;
-                          end else begin 
-                            io_lsu_size <= 2'b00;
-                          end
-                        end
-                        else begin
-                          state<=LSU_IDLE;
-                          if(lsu_valid && wbu_ready) begin
-                            lsu_valid <= 1'b0;
-                          end
-                        end
-                      end
-                LSU_WAIT: begin
-                    if(lsu_ready) begin
-                        lsu_ready <= 1'b0;
-                    end
-                
-                    if(lsu_reqValid) begin
-                        lsu_reqValid <= 1'b0;
-                    end
-
-                    if (lsu_respValid) begin
-                        lsu_valid <= 1'b1;
-                        state <= LSU_IDLE;
-                        if(lsu_wen) begin
-                            lsu_wen <= 1'b0;
-                        end
-                        if(l_lw) begin
-                            RegWriteData <= deviation_rdata;
-                        end else if(l_lbu) begin
-                            // case(ALU_OUT[1:0])
-                            //     2'b00: RegWriteData = {24'b0, lsu_rdata[7:0]};
-                            //     2'b01: RegWriteData = {24'b0, lsu_rdata[15:8]};
-                            //     2'b10: RegWriteData = {24'b0, lsu_rdata[23:16]};
-                            //     2'b11: RegWriteData = {24'b0, lsu_rdata[31:24]};
-                            // endcase
-                            RegWriteData <= {24'b0, deviation_rdata[7:0]};
-                            end else begin 
-                                RegWriteData <=0;
-                        end
-                end    
-            end                
-            endcase
-        end
-    end
-
-endmodule
-
-module ysyx_25080202_PC (
-    input clk,
-    input rst,
-    input [31:0] next_pc,
-    input wbu_valid,
-    output reg pc_valid,
-    output reg [31:0] pc
+ysyx_24080018_GPR gpr(
+	.clk					 (clock),
+	.reset				 (reset),
+	.mem_wbu_valid (mem_wbu_valid),
+	.wbu_mem_ready (wbu_mem_ready),
+	.wbu_ifu_retire(wbu_ifu_retire),
+	.rdata1				 (rdata1),
+	.rdata2				 (rdata2),
+	.raddr1				 (raddr1),
+	.raddr2				 (raddr2),
+	.i_wbu_cnt		 (mem_wbu_cnt),
+	.i_ebreak 		 (mem_ebreak),
+	.i_pc					 (mem_pc),
+	.i_waddr			 (mem_waddr),
+	.i_wdata			 (mem_wdata)
 );
-    always @(posedge clk) begin
-        if (rst) begin
-            pc <= 32'h30000000;  // 起始地址
-            pc_valid <= 1;
-        end
-        else if (wbu_valid) begin
-            pc <= next_pc;
-            pc_valid <= 1;
-        end
-        else if(pc_valid) begin
-            pc_valid <= 0;
-        end
-    end
+
+ysyx_24080018_CSR csr(
+	.clk					 (clock),
+	.reset				 (reset),
+	.exu_csr_valid (exu_csr_valid),
+	.csr_exu_ready (csr_exu_ready),
+	.csr_ifu_retire(csr_ifu_retire),
+	.i_csr_cnt		 (exu_csr_cnt),
+	.i_csr_imm		 (csr_imm),
+	.i_wdata			 (rdata1),
+	.o_rdata			 (csr_data)
+);
+
 endmodule
-module ysyx_25080202_RegisterFile #(ADDR_WIDTH = 5, DATA_WIDTH = 32) (
-  input clk,
-  input [DATA_WIDTH-1:0] wdata,
-  input [ADDR_WIDTH-1:0] waddr,
-  input L_wen,
-  input [ADDR_WIDTH-1:0] raddr_1,
-  input [ADDR_WIDTH-1:0] raddr_2,
-  output reg [DATA_WIDTH-1:0] rdata_1,
-  output reg [DATA_WIDTH-1:0] rdata_2,
+
+	
+
+module ysyx_24080018_IFU( 
+  input             clk,
+  input             reset,
+
+  output            ifu_idu_valid,
+  input             idu_ifu_ready,
+  input							wbu_ifu_retire,
+	input 						csr_ifu_retire,
   
-  // 新增：调试寄存器输出端口
-  output reg [DATA_WIDTH-1:0] zero,
-  output reg [DATA_WIDTH-1:0] ra,
-  output reg [DATA_WIDTH-1:0] sp,
-  output reg [DATA_WIDTH-1:0] gp,
-  output reg [DATA_WIDTH-1:0] tp,
-  output reg [DATA_WIDTH-1:0] s0,
-  output reg [DATA_WIDTH-1:0] s1,
-  output reg [DATA_WIDTH-1:0] a0,
-  output reg [DATA_WIDTH-1:0] a1,
-  output reg [DATA_WIDTH-1:0] a2,
-  output reg [DATA_WIDTH-1:0] a3,
-  output reg [DATA_WIDTH-1:0] a4,
-  output reg [DATA_WIDTH-1:0] a5  
+	input 						i_ControlHazard,
+  input      [31:0] i_imm,
+  input             i_br_taken,
+	input			 [31:0] i_pc_idu,
+  input      [31:0] i_ret,
+  input      [ 3:0] i_pc_cnt,
+
+  output 		 [31:0] o_inst,
+  output reg [31:0] o_pc,
+
+	output 						o_ifu_reqValid,
+	output		 [31:0] o_ifu_addr,
+	input							i_ifu_respValid,
+	input			 [31:0] i_ifu_rdata
 );
+
+  wire jalr  = (i_pc_cnt === 4'b1000);
+  wire jal   = (i_pc_cnt === 4'b0111);
+  wire bxx   = (i_pc_cnt === 4'b0001) | (i_pc_cnt === 4'b0010) | (i_pc_cnt === 4'b0011) | (i_pc_cnt === 4'b0100) | (i_pc_cnt === 4'b0101) | (i_pc_cnt === 4'b0110);
+
+  wire [31:0] target_pc;
+	wire retire;
+	assign retire = wbu_ifu_retire || csr_ifu_retire;
+  assign target_pc  = (bxx && !i_br_taken) ? o_pc :
+											(bxx &&  i_br_taken) ? (i_ControlHazard) ? (i_pc_idu + i_imm) : o_pc + i_imm : 
+                      (jal            	 ) ? (i_ControlHazard) ? (i_pc_idu + i_imm) : o_pc + i_imm :
+                      (jalr           	 ) ? i_ret          : 
+                      o_pc + 32'd4;
   
-    // 寄存器定义（RISC-V ABI名称）
-    localparam ZERO = 0;
-    localparam RA   = 1;
-    localparam SP   = 2;
-    localparam GP   = 3;
-    localparam TP   = 4;
-    localparam S0   = 8;
-    localparam S1   = 9;
-    localparam A0   = 10;
-    localparam A1   = 11;
-    localparam A2   = 12;
-    localparam A3   = 13;
-    localparam A4   = 14;
-    localparam A5   = 15;
-//     reg wen;
-//   assign wen = L_wen;
-reg wen;
-always @(*) begin
-  wen = L_wen;
-end
-  reg [DATA_WIDTH-1:0] rf [2**(ADDR_WIDTH-1)-1:0];
+  localparam IDLE = 1'b0;
+  localparam WAIT = 1'b1;
+  reg cstate, nstate;
+	reg [31:0] temp_pc;
+
+  assign ifu_idu_valid  = i_ifu_respValid;
+	assign o_ifu_addr 		= (temp_pc != o_pc) && (temp_pc != 0) ? temp_pc : o_pc;
+
+	reg prev_idle;
+	
+	assign o_ifu_reqValid = (!reset && (cstate == IDLE) && 
+	                        (!prev_idle  && !i_ControlHazard)        // 刚进入IDLE且无冒险
+	                        ) ? 1'b1 : 1'b0;
 
   always @(posedge clk) begin
-    if (wen) rf[waddr[3:0]] <= wdata;
-    //f (waddr == 5'd2) $display("[REG] x2(sp) <= 0x%08h", wdata);
-
+    if(reset) begin
+      o_pc <= 32'h30000000;
+	    prev_idle <= 1'b0;
+			temp_pc <= 0;
+    end else begin
+	    prev_idle <= (cstate == IDLE);
+			if (i_ControlHazard) begin
+				temp_pc <= target_pc; // 没办法改变了
+      end else if (retire) begin
+        o_pc <= (temp_pc != o_pc ) && (temp_pc != 0 ) ? temp_pc : target_pc;
+      end 
+			if (o_ifu_reqValid) begin
+				temp_pc <= 0;
+			end
+    end
   end
 
-    assign rdata_1 = (raddr_1 == 0) ? 32'b0 : rf[raddr_1[3:0]];
-    assign rdata_2 = (raddr_2 == 0) ? 32'b0 : rf[raddr_2[3:0]];
-    
-    // 调试寄存器输出    
-    assign zero = (ZERO == 0) ? 32'b0 : rf[ZERO]; // x0 始终为0
-    assign ra   = rf[RA];
-    assign sp   = rf[SP];
-    assign gp   = rf[GP];
-    assign tp   = rf[TP];
-    assign s0   = rf[S0];
-    assign s1   = rf[S1];
-    assign a0   = rf[A0];
-    assign a1   = rf[A1];
-    assign a2   = rf[A2];
-    assign a3   = rf[A3];
-    assign a4   = rf[A4];
-    assign a5   = rf[A5];
-// `ifdef VERILATOR
-// import "DPI-C" function void set_gpr_ptr(input logic [31:0] a[]);
-//   initial begin 
-//     set_gpr_ptr(rf);
-//   end
-// `endif
-endmodule
-module ysyx_25080202_WBU(
-    input clk,
-    input rst,
-    input [31:0] ALU_OUT,
-    input [31:0] CSR_RDATA,
-    input [31:0] i_csr_wdata,
-    input l_lw,
-    input l_lbu,
-    input I_jalr,
-    input S_sb,
-    input S_sw,
-    input I_add,
-    input R_add,
-    input U_lui,
-    input I_csrrw,
-    input I_csrrs,
-    input [31:0] load_wdata,
-    input lsu_busy,
-    input lsu_valid,
-    input ifu_valid,
-    input [31:0] PC,
-    output reg wbu_ready,
-    output reg wbu_valid,
-    output [31:0] next_pc,
-    output [31:0] reg_wdata,
-    output [31:0] csr_wdata
-);
+	assign o_inst = i_ifu_rdata;
 
-    localparam IDLE = 2'b00;
-    localparam WAIT = 2'b01;
-    localparam LSUWAIT = 2'b10; 
-    reg [1:0] state;
-    assign next_pc = (I_jalr) ? {ALU_OUT[31:1],1'b0} : PC+4; 
-    assign reg_wdata = (I_jalr) ? PC + 4 : 
-                        (I_csrrw | I_csrrs) ? CSR_RDATA:
-                        (lsu_valid) ? load_wdata : ALU_OUT;
-    assign csr_wdata = i_csr_wdata;          
-
-    always @(posedge clk) begin
-        if (rst) begin
-            state <= IDLE;
-            //next_pc <= 32'h30000004;            
-            wbu_ready <= 1'b0;
-            wbu_valid <= 1'b0;
-            //reg_wdata <= 32'b0;
-            //csr_wdata <= 32'b0;
-        end else begin
-            case (state)
-                IDLE: begin
-                    if (ifu_valid) begin
-                        if (lsu_busy) begin
-                            state <= LSUWAIT;
-                            wbu_valid <= 1'b0;
-                        end
-                        else begin
-                            state <= WAIT;
-                            wbu_ready <= 1'b1;
-                            
-                                wbu_valid <=1'b1;
-                            
-                        end
-                    end
-                    else begin
-                        state <= IDLE;
-                        if (wbu_ready) begin
-                            wbu_ready <= 1'b0;
-                        end
-                        if (wbu_valid) begin
-                            wbu_valid <= 1'b0;
-                        end
-                    end
-                end                           
-                WAIT: begin
-                    if (wbu_ready) begin
-                        wbu_ready <= 1'b0;
-                    end
-                    if(I_jalr) begin
-                        //next_pc <= {ALU_OUT[31:1],1'b0};
-                        //reg_wdata <= PC + 4;
-                    end else if(I_csrrw) begin
-                        //csr_wdata <= ALU_OUT;
-                        //reg_wdata <=CSR_RDATA;
-                        //next_pc <=PC + 4;
-                    end
-                    else begin
-                        //next_pc <=PC + 4;
-                        //reg_wdata <= ALU_OUT;
-                    end
-                    state <= IDLE;
-                    wbu_valid <= 1'b0;
-
-                end
-                LSUWAIT: begin
-                    if (lsu_valid) begin
-                        wbu_ready <= 1'b1;
-                        //reg_wdata <= load_wdata;
-                        state <= IDLE;
-                        //next_pc <= PC + 4;  
-                              
-                        wbu_valid <= 1'b1;                
-                    end
-                end
-                default:begin
-                    state<=IDLE;
-                    end
-            endcase
-        end
+  always @(posedge clk) begin
+    if(reset) begin
+      cstate <= IDLE;
+    end else begin
+      cstate <= nstate;
     end
+  end
+
+  always @(*) begin
+    case (cstate)
+      IDLE : begin
+				if (i_ControlHazard) begin
+					nstate = IDLE;
+        end else if ((target_pc != o_pc) && i_ifu_respValid) begin
+          nstate = WAIT;
+        end else begin
+          nstate = IDLE;
+        end
+      end
+      WAIT : begin
+				if (i_ControlHazard) begin
+						nstate = WAIT;
+        end else if (retire) begin
+          if (target_pc != o_pc) begin
+            nstate = IDLE;  
+          end else begin
+            nstate = WAIT;  
+          end
+        end else begin
+          nstate = WAIT;    
+        end
+      end
+      default: begin
+        nstate = IDLE;
+      end
+    endcase
+  end
 
 endmodule
-module ysyx_25080202(
-    input clock,
-    input reset,
-    input io_ifu_respValid,
-    input [31:0]io_ifu_rdata,
-    output [31:0] io_ifu_addr,
-    output io_ifu_reqValid,
-    input [31:0]  io_lsu_rdata,
-    input  io_lsu_respValid,
-    output io_lsu_reqValid,
-    output [31:0] io_lsu_addr,
-    output io_lsu_wen,
-    output [31:0] io_lsu_wdata,
-    output [3:0]  io_lsu_wmask,
-    output [1:0]  io_lsu_size
 
+module ysyx_24080018_IDU (
+	input							clk,
+	input							reset,
+
+  input             ifu_idu_valid,
+  output            idu_ifu_ready,
+  output            idu_exu_valid,
+  input             exu_idu_ready,
+
+  input  		 [31:0] i_inst,
+	input			 [31:0] i_pc,
+	
+	output reg [31:0] o_pc,
+  output reg [ 3:0] o_pc_cnt,
+  output reg [ 3:0] o_lsu_cnt,
+  output reg        o_wbu_cnt,
+  output reg [ 3:0] o_alu_cnt,
+  output reg [ 5:0] o_ins_cnt,
+  output reg [ 2:0] o_csr_cnt,
+  output reg [ 3:0] o_rs1,
+  output reg [ 3:0] o_rs2,
+  output reg [ 3:0] o_rd,
+  output reg [31:0] o_imm,
+  output reg [11:0] o_csr_imm,
+  output reg        o_auipc,
+  output reg        o_lui,
+  output reg        o_ebreak,
+  output reg        o_load,
+  output reg        o_jal,
+  output reg        o_jalr,
+	output reg				o_ControlHazard 
 );
-    // ===============================
-    // 内部信号定义
-    // ===============================
-    wire        I_csrrw;
-    wire        I_csrrs;
-    wire [11:0] csr_addr;
-    wire [31:0] csr_wdata;
-    wire [31:0] csr_rdata;
-    wire [31:0] PC_plus_4;
-    wire [31:0] ALU_OUT;
-    wire [31:0] R1_data;
-    wire [31:0] R2_data;
-    wire [31:0] RegWriteData;
-    wire Reg_WE;
-    wire I_jalr;
-    wire [4:0] r1, r2, rd;
-    wire [31:0] imm;
-    wire R_TYPE, I_TYPE_ARITH, L_TYPE_LOAD, S_TYPE, U_TYPE, I_TYPE;
-    wire B_TYPE, J_TYPE, U_lui, R_add, l_lw, l_lbu, I_add, S_sw, S_sb, I_ebreak;
-    wire [3:0] wmask;
-    // ===== IFU ↔ Memory =====
-    //wire [31:0] ifu_raddr;
-    //reg [31:0] ifu_rdata;
-    reg        ifu_reqValid;
-    reg        ifu_respValid;
-    wire        ifu_valid;
-    wire        pc_valid;
-    wire [31:0] PC;
-    wire        cpu_en;
-    // ===== LSU ↔ Memory =====
-   // wire [31:0] lsu_addr;
-    //wire [31:0] lsu_wdata;
-   // wire [3:0]  lsu_wmask;
-   // wire [31:0] lsu_rdata;
-    // wire        lsu_wen;
-    // wire        lsu_reqValid;
-    // wire        lsu_respValid;
-    wire        lsu_ready;
-    wire        lsu_working;
-    wire        lsu_valid;
-    // ===== WBU 控制信号 =====
-    wire        wbu_ready;
-    wire        wbu_valid;
-    wire [31:0] next_pc;
-    wire [31:0] reg_wdata;
-    wire [31:0] csr_wdata_out;
-    wire [31:0] inst;
 
-   // wire ifu_wen;
+  wire [ 6:0] opcode;
+  wire [ 2:0] fun3;
+  wire [ 6:0] fun7;
+  wire [ 3:0] pc_cnt;
+  wire [ 3:0] lsu_cnt;
+  wire        wbu_cnt;
+  wire [ 3:0] alu_cnt;
+  wire [ 5:0] ins_cnt;
+  wire [ 2:0] csr_cnt;
+  wire [ 4:0] rs1;
+  wire [ 4:0] rs2;
+  wire [ 4:0] rd;
+  wire [31:0] imm;
+  wire [11:0] csr_imm;
+  wire        auipc;
+  wire        lui;
+  wire        ebreak;
+  wire        load;
+  wire        jal;
+  wire        jalr;
 
-    // ===============================
-    // 指令存储器仿真接口
-    // ===============================
-    //import "DPI-C" function int pmem_read(input int raddr);
+  assign opcode = i_inst[ 6: 0];
+  assign   fun3 = i_inst[14:12];
+  assign   fun7 = i_inst[31:25];
 
-    ysyx_25080202_IFU ifu (
-        .clk(clock),
-        .rst(reset),
-        .PC(PC),
-        .inst(inst),
-        .pc_valid(pc_valid),
-        .wbu_ready(wbu_ready),
-        .ifu_valid(ifu_valid),
-        .ifu_wen(),
-        .ifu_reqValid(io_ifu_reqValid),   // *** 修改：连接握手信号
-        .ifu_respValid(io_ifu_respValid),// *** 修改：连接握手信号
-        .ifu_raddr(io_ifu_addr),
-        .ifu_rdata(io_ifu_rdata),
-        .lsu_ready(lsu_ready)
-    );
+  assign  rd = i_inst[11: 7];
+  assign rs1 = i_inst[19:15];
+  assign rs2 = i_inst[24:20];
+
+  wire UType,JType,BType,IType,SType,RType,IcsrType;
+  assign ins_cnt = {UType,JType,BType,IType,SType,RType};
+
+  // U Type
+  assign auipc  = ( opcode == 7'b0010111 );
+  assign lui    = ( opcode == 7'b0110111 );
+  assign UType  = ( auipc | lui );
+  // J Type
+  assign JType  = ( opcode == 7'b1101111 );           // jal
+  assign jal    = JType;
+  // I Type
+  assign jalr   = ( opcode == 7'b1100111 );
+  assign load   = ( opcode == 7'b0000011 );
+  wire   I_imm  = ( opcode == 7'b0010011 );
+  assign IType  = ( jalr ) || ( load ) || ( I_imm );  // jalr lb lh lw lbu lhu addi slti sltiu xori ori andi alli slli srli srai 
+  // B Type
+  assign BType  = ( opcode == 7'b1100011 );           // beq bne blt bge blut bgeu
+  // S Type
+  assign SType  = ( opcode == 7'b0100011 );           // sb sh sw
+  // R Type
+  assign RType  = ( opcode == 7'b0110011 );           // add sub sll slt sltu xor srl sra or and
+  // ICSR Type
+  assign IcsrType = ( opcode == 7'b1110011);          // ecall ebreak csrrw csrrs
+	// others
+  wire ecall,mret;
+  assign ebreak = ( i_inst == 32'b00000000000100000000000001110011);
+  assign ecall  = ( i_inst == 32'b00000000000000000000000001110011);
+  assign mret   = ( i_inst == 32'b00110000001000000000000001110011);
 
 
-    wire [31:0] load_wdata;
-    // `ifdef VERILATOR
-    // import "DPI-C" function void notify_ebreak();
-    // always @(posedge clock) begin
-    //     if (I_ebreak && $time > 0) begin
-    //         $display("[TRAP] EBREAK at PC = 0x%08x", PC);
-    //         notify_ebreak();
-    //     end
-    // end
-    // `endif
+  assign imm = ( {32{JType}} & {{12{i_inst[31]}},i_inst[19:12],i_inst[20],i_inst[30:21],1'b0}             ) |
+               ( {32{UType}} & {i_inst[31:12],{12{1'b0}}}                                           ) |
+               ( {32{BType}} & {{19{i_inst[31]}}, i_inst[31], i_inst[7], i_inst[30:25], i_inst[11:8], 1'b0} ) |
+               ( {32{SType}} & {{20{i_inst[31]}},i_inst[31:25],i_inst[11:7]}                            ) |
+               ( {32{IType}} & {{20{i_inst[31]}},i_inst[31:20]} );
 
-    ysyx_25080202_PC pc(
-        .clk(clock),
-        .rst(reset),
-        .next_pc(next_pc),
-        .wbu_valid(wbu_valid),
-        .pc_valid(pc_valid),
-        .pc(PC)
-    );
+  assign csr_cnt = IcsrType ? ( fun3 === 3'b001 ) ? 3'b001 :         // csrrw
+                              ( fun3 === 3'b010 ) ? 3'b010 :         // csrrs
+                              ( ebreak          ) ? 3'b011 :         // ebreak
+                              ( ecall           ) ? 3'b100 :         // ecall
+                              ( mret            ) ? 3'b101 : 3'b000 :// mret
+                   3'b000;
 
-    ysyx_25080202_IDU idu(
-        .inst(inst),
-        .R_TYPE(R_TYPE),
-        .I_TYPE_ARITH(I_TYPE_ARITH),
-        .L_TYPE_LOAD(L_TYPE_LOAD),
-        .S_TYPE(S_TYPE),
-        .U_TYPE(U_TYPE),
-        .I_TYPE(I_TYPE),
-        .MemWEn(),
-        .B_TYPE(B_TYPE),
-        .J_TYPE(J_TYPE),
-        .I_jalr(I_jalr),
-        .U_lui(U_lui),
-        .R_add(R_add),
-        .l_lw(l_lw),
-        .l_lbu(l_lbu),
-        .I_add(I_add),
-        .S_sw(S_sw),
-        .S_sb(S_sb),
-        .I_ebreak(I_ebreak),
-        .I_csrrw(I_csrrw),
-        .I_csrrs(I_csrrs),
-        .csr_addr(csr_addr),
-        .imm(imm),
-        .r1(r1),
-        .r2(r2),
-        .rd(rd),
-        .wmask(wmask)
-    );
+  assign csr_imm = IcsrType ? i_inst[31:20] : 0 ;
 
-    ysyx_25080202_LSU lsu (
-        .rst(reset),
-        .clk(clock),
-        .rd(rd),
-        .R2_data(R2_data),
-        .ALU_OUT(ALU_OUT),
-        .l_lw(l_lw),
-        .l_lbu(l_lbu),
-        .S_sb(S_sb),
-        .S_sw(S_sw),
-        .R_TYPE(R_TYPE),
-        .I_TYPE_ARITH(I_TYPE_ARITH),
-        .U_TYPE(U_TYPE),
-        .J_TYPE(J_TYPE),
-        .I_csrrw(I_csrrw),
-        .CSR_RDATA(csr_rdata),
-        //.lsu_en(cpu_en),
-        .I_TYPE(I_TYPE),
-        .wmask(wmask),
-        // ===== SimpleBus 信号 =====
-        .ifu_valid(ifu_valid),
-        .wbu_ready(wbu_ready),
-        .lsu_valid(lsu_valid),
-        .lsu_reqValid(io_lsu_reqValid),   // *** 修改：增加 reqValid 信号连接
-        .lsu_respValid(io_lsu_respValid), // *** 修改：增加 respValid 信号连接
-        .lsu_rdata(io_lsu_rdata),
-        .lsu_addr(io_lsu_addr),
-        .lsu_wen(io_lsu_wen),
-        .lsu_wdata(io_lsu_wdata),
-        .lsu_wmask(io_lsu_wmask),
-        .lsu_ready(lsu_ready),
-        .lsu_working(lsu_working),
-        .io_lsu_size(io_lsu_size),
-        //.wb_addr(lsu_wb_addr),
-        // ===== 写回寄存器 =====
-        .RegWriteData(load_wdata)
-        //.Reg_WE(Reg_WE)
-    );
+  assign pc_cnt = BType ? ( fun3 === 3'b000 ) ? 4'b0001 :         // beq
+                          ( fun3 === 3'b001 ) ? 4'b0010 :         // bne
+                          ( fun3 === 3'b100 ) ? 4'b0011 :         // blt
+                          ( fun3 === 3'b101 ) ? 4'b0100 :         // bge
+                          ( fun3 === 3'b110 ) ? 4'b0101 :         // bltu
+                          ( fun3 === 3'b111 ) ? 4'b0110 : 4'b0000:// bgeu
+                  JType ? 4'b0111 :
+                  jalr  ? 4'b1000 :
+                  mret  ? 4'b1001 :
+                  ecall ? 4'b1010 :
+                  4'b0000;
 
-    ysyx_25080202_RegisterFile regfile (
-        .clk(clock),
-        .wdata(reg_wdata),
-        .waddr(rd),
-        .L_wen(wbu_valid && !(S_sb||S_sw)),
-        .raddr_1(r1),
-        .raddr_2(r2),
-        .rdata_1(R1_data),
-        .rdata_2(R2_data),
-        .zero(),
-        .ra(),
-        .sp(),
-        .gp(),
-        .tp(),
-        .s0(),
-        .s1(),
-        .a0(),
-        .a1(),
-        .a2(),
-        .a3(),
-        .a4(),
-        .a5()
-    );
+  assign lsu_cnt = SType ? (( fun3 === 3'b000 ) ? 4'b0001 :          // sb
+                            ( fun3 === 3'b001 ) ? 4'b0010 :          // sh
+                            ( fun3 === 3'b010 ) ? 4'b0011 : 4'b0000):// sw
+                   load  ? (( fun3 === 3'b000 ) ? 4'b0100 :          // lb
+                            ( fun3 === 3'b001 ) ? 4'b0101 :          // lh
+                            ( fun3 === 3'b010 ) ? 4'b0110 :          // lw
+                            ( fun3 === 3'b100 ) ? 4'b0111 :          // lbu
+                            ( fun3 === 3'b101 ) ? 4'b1000 : 4'b0000):// lhu
+                   4'b0000;
 
-    ysyx_25080202_EXU alu (
-        .R_TYPE(R_TYPE),
-        .I_TYPE(I_TYPE),
-        .S_TYPE(S_TYPE),
-        .B_TYPE(B_TYPE),
-        .J_TYPE(J_TYPE),
-        .U_TYPE(U_TYPE),
-        .R_add(R_add),
-        .I_add(I_add),
-        .I_jalr(I_jalr),
-        .l_lbu(l_lbu),
-        .l_lw(l_lw),
-        .I_csrrw(I_csrrw),
-        .I_csrrs(I_csrrs),
-        .rdata_1(R1_data),
-        .rdata_2(R2_data),
-        .imm(imm),
-        .pc(PC),
-        .csr_wdata(csr_wdata),
-        .ALU_OUT(ALU_OUT)
-    );
+  assign wbu_cnt = UType | JType | IType | RType | ( csr_cnt === 3'b001) | ( csr_cnt === 3'b010 );
 
-    ysyx_25080202_CSR csr(
-        .clk(clock),
-        .rst(reset),
-        .I_csrrw(I_csrrw),
-        .I_csrrs(I_csrrs),
-        .csr_addr(csr_addr),
-        .csr_wdata(csr_wdata_out),
-        .csr_rdata(csr_rdata)
-    );
-    ysyx_25080202_WBU wbu (
-        .clk(clock),
-        .rst(reset),
-        .ALU_OUT(ALU_OUT),
-        .CSR_RDATA(csr_rdata),
-        .i_csr_wdata(csr_wdata),
-        .l_lw(l_lw),
-        .l_lbu(l_lbu),
-        .I_jalr(I_jalr),
-        .S_sb(S_sb),
-        .S_sw(S_sw),
-        .I_add(I_add),
-        .R_add(R_add),
-        .U_lui(U_lui),
-        .I_csrrw(I_csrrw),
-        .I_csrrs(I_csrrs),
-        .load_wdata(load_wdata),
-        .lsu_busy(lsu_working),
-        .lsu_valid(lsu_valid),
-        .ifu_valid(ifu_valid),
-        .PC(PC),
-        .wbu_ready(wbu_ready),
-        .wbu_valid(wbu_valid),
-        .next_pc(next_pc),
-        .reg_wdata(reg_wdata),
-        .csr_wdata(csr_wdata_out)
-    );
+  assign alu_cnt = ( RType ) ? (( fun3 === 3'b000 ) ? ((fun7 === 7'b0000000 ) ? 4'b0001 : 4'b0010): // + (add) / - (sub)
+                                ( fun3 === 3'b010 ) ? 4'b0011 : // sign< (slt)
+                                ( fun3 === 3'b011 ) ? 4'b0100 : // unsign< (sltu)
+                                ( fun3 === 3'b111 ) ? 4'b0101 : // & (and)
+                                ( fun3 === 3'b110 ) ? 4'b0110 : // | (or) 
+                                ( fun3 === 3'b100 ) ? 4'b0111 : // ^ (xor)
+                                ( fun3 === 3'b001 ) ? 4'b1000 : // <<0 (sll)
+                                ( fun3 === 3'b101 ) ? ((fun7 === 7'b0000000 ) ? 4'b1001 : 4'b1010): 4'b0000):// 0>> (srl) / sign>> (sra)
+                   ( I_imm ) ? (( fun3 === 3'b000 ) ? 4'b0001 : // + (addi)
+                                ( fun3 === 3'b010 ) ? 4'b0011 : // sign< (slti)
+                                ( fun3 === 3'b011 ) ? 4'b0100 : // unsign< (sltiu)
+                                ( fun3 === 3'b111 ) ? 4'b0101 : // & (andi)
+                                ( fun3 === 3'b110 ) ? 4'b0110 : // | (ori)
+                                ( fun3 === 3'b100 ) ? 4'b0111 : // ^ (xori)
+                                ( fun3 === 3'b001 ) ? 4'b1000 : // <<0 (slli)
+                                ( fun3 === 3'b101 ) ? ((fun7 === 7'b0000000 ) ? 4'b1001 : 4'b1010): 4'b0000):// 0>> (srli) / sign>> (srai)
+                   ( jalr ) ?    4'b0001 :
+                   ( jal  ) ?    4'b0001 :
+                   ( auipc) ?    4'b0001 :
+                   ( lui  ) ?    4'b0001 :
+                   ( IcsrType ) ? (( fun3 === 3'b010 ) ? 4'b0001 :            // csrrs
+                                   ( fun3 === 3'b001 ) ? 4'b0001 : 4'b0000) : // csrrw
+                   4'b0000;
+
+  localparam IDLE = 1'b0;
+  localparam DECODE = 1'b1;
+  reg cstate, nstate;
+
+  assign idu_ifu_ready = (cstate == IDLE) ;
+  assign idu_exu_valid = (cstate == DECODE);
+
+
+	always @(posedge clk) begin
+    if(reset) begin
+			cstate <= IDLE;
+    end else begin
+			cstate <= nstate;
+    end
+  end
+
+  always @(*) begin
+    case (cstate)
+      IDLE : begin
+        if(ifu_idu_valid && !o_ControlHazard) begin
+          nstate = DECODE;  
+        end else begin
+          nstate = IDLE;    
+        end
+      end
+      DECODE : begin
+				if ( o_ControlHazard ) begin
+					nstate = IDLE;
+				end else if (exu_idu_ready) begin
+          nstate = IDLE;    
+        end else begin
+          nstate = DECODE;  
+        end
+      end
+      default: begin
+        nstate = IDLE;
+      end
+    endcase
+  end
+
+  always @(posedge clk) begin
+    if(reset) begin
+      o_ControlHazard <= 1'b0;
+			o_pc			<= 32'h30000000;
+      o_pc_cnt  <= 4'b0;
+      o_lsu_cnt <= 4'b0;
+      o_wbu_cnt <= 1'b0;
+      o_alu_cnt <= 4'b0;
+      o_ins_cnt <= 6'b0;
+      o_csr_cnt <= 3'b0;
+      o_rs1 		<= 4'b0;
+      o_rs2 		<= 4'b0;
+      o_rd 			<= 4'b0;
+      o_imm 		<= 32'b0;
+      o_csr_imm <= 12'b0;
+      o_auipc 	<= 1'b0;
+      o_lui 		<= 1'b0;
+      o_ebreak  <= 1'b0;
+      o_load 		<= 1'b0;
+      o_jal  		<= 1'b0;
+      o_jalr 		<= 1'b0;
+    end else begin
+      case (cstate)
+        IDLE : begin
+          if(ifu_idu_valid) begin
+        		o_ControlHazard <= (pc_cnt != 4'b0000) ;
+						o_pc			<= i_pc;
+            o_pc_cnt  <= pc_cnt;
+            o_lsu_cnt <= lsu_cnt;
+            o_wbu_cnt <= wbu_cnt;
+            o_alu_cnt <= alu_cnt;
+            o_ins_cnt <= ins_cnt;
+            o_csr_cnt <= csr_cnt;
+            o_rs1 		<= rs1;
+            o_rs2 		<= rs2;
+            o_rd  		<= (ecall || ebreak || SType || BType) ? 0 : rd;
+            o_imm 		<= imm;
+            o_csr_imm <= csr_imm;
+            o_auipc 	<= auipc;
+            o_lui 		<= lui;
+            o_ebreak  <= ebreak;
+            o_load 		<= load;
+            o_jal  		<= jal;
+            o_jalr 		<= jalr;
+          end
+        end
+        DECODE : begin
+					o_ControlHazard <= 1'b0;
+  				if(exu_idu_ready) begin
+						o_pc			<= o_pc;
+  				  o_pc_cnt  <= 4'b0;
+  				  o_lsu_cnt <= 4'b0;
+  				  o_wbu_cnt <= 1'b0;
+  				  o_alu_cnt <= 4'b0;
+  				  o_ins_cnt <= 6'b0;
+  				  o_csr_cnt <= 3'b0;
+  				  o_rs1 		<= 4'b0;
+  				  o_rs2 		<= 4'b0;
+  				  o_rd 			<= 4'b0;
+  				  o_imm 		<= 32'b0;
+  				  o_csr_imm <= 12'b0;
+  				  o_auipc   <= 1'b0;
+  				  o_lui 		<= 1'b0;
+  				  o_ebreak  <= 1'b0;
+  				  o_load 		<= 1'b0;
+  				  o_jal  		<= 1'b0;
+  				  o_jalr 		<= 1'b0;
+  				end else begin
+  				end
+        end
+      endcase
+    end
+  end
+
 endmodule
 
+
+module ysyx_24080018_EXU(
+  input             clk,
+  input             reset,
+
+  input             idu_exu_valid,
+  output            exu_idu_ready,
+  output            exu_mem_valid,
+  input             mem_exu_ready,
+  output            exu_csr_valid,
+  input             csr_exu_ready,
+
+	input 				    i_ebreak,
+  input  [31:0]     i_rdata1,
+  input  [31:0]     i_rdata2,
+	input	 [ 3:0]     i_waddr,
+  input  [ 5:0]     i_ins_cnt,
+  input  [31:0]     i_pc,
+  input  [ 3:0]     i_pc_cnt,
+  input  [ 3:0]     i_alu_cnt,
+  input  [ 2:0]     i_csr_cnt,
+  input             i_auipc,
+  input             i_lui,
+  input             i_jalr,
+  input             i_load,
+  input             i_jal,
+  input  [31:0]     i_imm,
+  input  [31:0]     i_csr_data,
+	input	 [ 3:0]     i_lsu_cnt,
+	input					    i_wbu_cnt,
+	input	 [ 3:0]     i_raddr1,
+	input	 [ 3:0]     i_raddr2,
+	input	 [ 3:0]     i_bypass_waddr,
+	input	 [31:0]     i_bypass_wdata,
+
+	output reg 				o_wbu_cnt,
+	output reg 				o_ebreak,
+	output reg [ 2:0] o_csr_cnt,
+	output reg [ 3:0] o_lsu_cnt,
+	output reg [ 3:0] o_waddr,
+	output reg [31:0] o_data_store,
+	output reg [31:0] o_addr_lsu,
+	output reg [31:0] o_pc ,
+  output reg [31:0] o_alu_result,
+  output        		o_br_taken
+);
+
+  localparam IDLE = 1'b0;
+  localparam WAIT = 1'b1;
+  reg cstate, nstate;
+
+  wire UType,JType,BType,IType,SType,RType;
+  assign {UType,JType,BType,IType,SType,RType} = i_ins_cnt;
+
+  wire  [31:0]  _alu_result;
+
+  assign exu_mem_valid = cstate === WAIT && (i_csr_cnt === 3'b0);
+  assign exu_csr_valid = cstate === WAIT && (i_csr_cnt != 3'b0);
+
+  assign exu_idu_ready = (cstate == IDLE);
+
+  always @(posedge clk) begin
+    if(reset) begin
+      cstate <= IDLE;
+		end else begin
+      cstate <= nstate;
+    end
+  end
+
+  always @(*) begin
+    	case (cstate)
+    	  IDLE : begin
+    	    if(idu_exu_valid) begin
+    	      nstate = WAIT;  
+    	    end else begin
+    	      nstate = IDLE;     
+    	    end
+    	  end
+    	  WAIT : begin
+    	    if(i_load || SType) begin
+						if(mem_exu_ready) begin
+							nstate = IDLE;
+						end else begin
+							nstate = WAIT;
+						end
+    	    end else if(i_csr_cnt != 3'b000) begin
+						if(csr_exu_ready) begin
+							nstate = IDLE;
+						end else begin
+							nstate = WAIT;
+						end
+    	    end else begin
+    	      nstate = IDLE;      
+    	    end
+    	  end
+    	  default: begin
+    	    nstate = IDLE;
+    	  end
+    	endcase
+  end
+
+  always @(posedge clk) begin
+    if(reset) begin
+			o_pc							<= 32'h30000000;
+			o_waddr 				  <= 4'b0;
+    end else begin
+      case (cstate)
+        IDLE : begin
+          if(idu_exu_valid) begin
+						o_pc 				 <= i_pc ;
+						o_lsu_cnt		 <= i_lsu_cnt;
+						o_waddr 		 <= i_waddr;
+						o_data_store <= ((i_bypass_waddr != 0) && (i_bypass_waddr == i_raddr2)) ? i_bypass_wdata : i_rdata2 ;
+						o_addr_lsu	 <= ((i_bypass_waddr != 0) && (i_bypass_waddr == i_raddr1)) ? i_bypass_wdata + i_imm : i_rdata1 + i_imm;
+						o_alu_result <= _alu_result;
+						o_ebreak		 <= i_ebreak;
+						o_csr_cnt 	 <= i_csr_cnt;
+						o_wbu_cnt		 <= i_wbu_cnt;
+          end
+        end
+        WAIT : begin
+        end
+      endcase
+    end
+  end
+
+
+  wire [31:0] alu_a,alu_b;
+
+  assign alu_a = ( i_jalr  ) ? i_pc 	:
+								 ( (RType | IType | SType | BType) && (i_bypass_waddr == i_raddr1)  && (i_bypass_waddr != 0)) ? i_bypass_wdata : // RAW
+								 ( i_auipc ) ? i_pc   :
+                 ( i_lui   ) ? 32'b0  :
+                 ( i_jal   ) ? i_pc 	:
+                 ( i_csr_cnt === 3'b010 ) ? i_csr_data :
+                 ( i_csr_cnt === 3'b001 ) ? i_csr_data :
+                 i_rdata1;
+
+  assign alu_b = ( (RType | SType | BType) && (i_bypass_waddr == i_raddr2)  && (i_bypass_waddr != 0)) ? i_bypass_wdata : // RAW
+								 ( i_jal   ) ? 32'd4 :
+                 ( i_jalr  ) ? 32'd4 :
+                 ( UType | JType | IType ) ? i_imm :
+                 ( RType | SType | BType ) ? i_rdata2 : 32'b0;
+
+  wire _br_taken;
+  assign _br_taken = ( i_pc_cnt == 4'b0001 ) ? ($signed(alu_a) == $signed(alu_b)) :
+                     ( i_pc_cnt == 4'b0010 ) ? ($signed(alu_a) != $signed(alu_b)) :
+                     ( i_pc_cnt == 4'b0011 ) ? ($signed(alu_a) <  $signed(alu_b)) :
+                     ( i_pc_cnt == 4'b0100 ) ? ($signed(alu_a) >= $signed(alu_b)) :
+                     ( i_pc_cnt == 4'b0101 ) ? (        alu_a  <          alu_b ) :
+                     ( i_pc_cnt == 4'b0110 ) ? (        alu_a  >=         alu_b ) :
+                     1'b0;
+	assign o_br_taken = _br_taken;
+
+  wire  [63:0]  shift_temp ;
+  assign shift_temp = ({{32{alu_a[31]}}, alu_a} >>  alu_b[4:0]);
+  assign _alu_result = ( i_alu_cnt === 4'b0001 ) ? (         alu_a  +          alu_b ): // + (add/addi/jalr)
+                       ( i_alu_cnt === 4'b0010 ) ? (         alu_a  -          alu_b ): // - (sub)
+                       ( i_alu_cnt === 4'b0011 ) ? (($signed(alu_a) <  $signed(alu_b))? 32'd1:32'd0 ): // sign< (slt/slti)
+                       ( i_alu_cnt === 4'b0100 ) ? ((        alu_a  <          alu_b )? 32'd1:32'd0 ): // unsign< (sltu/sltiu)
+                       ( i_alu_cnt === 4'b0101 ) ? (         alu_a  &          alu_b ): // & (and/andi)
+                       ( i_alu_cnt === 4'b0110 ) ? (         alu_a  |          alu_b ): // | (or/ori)
+                       ( i_alu_cnt === 4'b0111 ) ? (         alu_a  ^          alu_b ): // ^ (xor/xori)
+                       ( i_alu_cnt === 4'b1000 ) ? (         alu_a <<      alu_b[4:0]): // <<0 (sll/slli)
+                       ( i_alu_cnt === 4'b1001 ) ? (         alu_a >>      alu_b[4:0]): // 0>> (srl/srli)
+                       ( i_alu_cnt === 4'b1010 ) ? ( shift_temp[31:0] ):                // sign>> (sra/srai)
+                       32'b0;
+
+endmodule
+
+module ysyx_24080018_LSU (
+  input             clk,
+  input             reset,
+
+  input             exu_mem_valid,
+  output            mem_exu_ready,
+  output            mem_wbu_valid,
+  input             wbu_mem_ready,
+
+	output reg [31:0] o_wdata,
+	output reg [ 3:0] o_waddr,
+	output reg 				o_wbu_cnt,
+	output reg				o_ebreak,
+	output reg [31:0] o_pc,
+	input			 [31:0] i_pc,
+	input							i_ebreak,
+	input			 				i_wbu_cnt,
+	input 		 [ 3:0] i_waddr,
+	input			 [31:0] i_wdata,
+  input  		 [ 3:0] i_lsu_cnt,
+  input  		 [31:0] i_lsu_wdata,
+  input  		 [31:0] i_lsu_addr,
+
+	output		 				o_lsu_reqValid,
+	output		 [31:0] o_lsu_addr,
+	output		 [ 1:0] o_lsu_size,
+	output						o_lsu_wen,
+	output		 [31:0] o_lsu_wdata,
+	output		 [ 3:0] o_lsu_wmask,
+	input							i_lsu_respValid,
+	input			 [31:0] i_lsu_rdata
+  
+);
+
+  localparam IDLE  = 1'b0;
+	localparam WAIT  = 1'b1;
+  
+  reg cstate, nstate;
+  wire [31:0] temp;
+	wire [31:0] lsu_rdata;
+
+	wire load,store;
+
+	assign load  = (i_lsu_cnt === 4'b0100) || (i_lsu_cnt === 4'b0101) || (i_lsu_cnt === 4'b0110) || (i_lsu_cnt === 4'b0111) || (i_lsu_cnt === 4'b1000);
+	assign store = (i_lsu_cnt === 4'b0001) || (i_lsu_cnt === 4'b0010) || (i_lsu_cnt === 4'b0011);
+
+  assign mem_exu_ready = cstate === IDLE;
+  assign mem_wbu_valid = (load || store) ? (cstate === WAIT) && i_lsu_respValid : (cstate == WAIT);
+
+	assign o_lsu_reqValid = !reset && exu_mem_valid && mem_exu_ready && (load || store);
+	assign o_lsu_addr  		= i_lsu_addr;
+	assign o_lsu_wdata 		= i_lsu_wdata << i_lsu_addr[1:0]*8;
+	assign o_lsu_wen   		= store;
+	assign o_lsu_size  		= (i_lsu_cnt == 4'b0001) ? 2'b00 : // sb
+	 												(i_lsu_cnt == 4'b0010) ? 2'b01 : // sh
+												  (i_lsu_cnt == 4'b0011) ? 2'b10 : // sw
+										 			(i_lsu_cnt == 4'b0100) ? 2'b00 : // lb
+										 			(i_lsu_cnt == 4'b0101) ? 2'b01 : // lh
+										 			(i_lsu_cnt == 4'b0110) ? 2'b10 : // lw
+										 			(i_lsu_cnt == 4'b0111) ? 2'b00 : // lbu
+										 			(i_lsu_cnt == 4'b1000) ? 2'b01 : // lhu
+										 			2'b0;
+
+	wire [3:0] wmask_half,wmask_byte;
+	assign wmask_half = (i_lsu_addr[1] == 1'b0) ? 4'h3 : 4'hc ;
+	assign wmask_byte = (i_lsu_addr[1:0] == 2'd0) ? 4'h1 :
+											(i_lsu_addr[1:0] == 2'd1) ? 4'h2 :
+											(i_lsu_addr[1:0] == 2'd2) ? 4'h4 :
+											(i_lsu_addr[1:0] == 2'd3) ? 4'h8 :
+											4'h0;
+	assign o_lsu_wmask 		= (i_lsu_cnt == 4'b0001) ? wmask_byte : // sb
+										 			(i_lsu_cnt == 4'b0010) ? wmask_half : // sh
+										 			(i_lsu_cnt == 4'b0011) ? 4'hf    : // sw
+										 			4'd0;
+
+  always @(posedge clk) begin
+    if(reset) begin
+      cstate <= IDLE;
+    end else begin
+      cstate <= nstate;
+    end
+  end
+
+always @(*) begin
+    nstate = cstate;
+    case (cstate)
+      IDLE : begin
+        if((i_lsu_cnt === 4'b0) && exu_mem_valid) begin
+          nstate = WAIT;
+        end else if (load && exu_mem_valid) begin
+          nstate = WAIT;
+        end else if (store && exu_mem_valid) begin
+          nstate = WAIT;
+        end
+      end
+      WAIT : begin
+        if((i_lsu_cnt === 4'b0) && wbu_mem_ready) begin
+          nstate = IDLE;
+        end else if (load && i_lsu_respValid) begin
+          nstate = IDLE;
+        end else if (store && i_lsu_respValid) begin
+          nstate = IDLE;
+        end
+      end
+      default: nstate = IDLE;
+    endcase
+end
+
+always @(posedge clk) begin
+    if (reset) begin
+        o_waddr   <= 4'b0;
+        o_wdata   <= 32'b0;
+        o_wbu_cnt <= 1'b0;
+        o_ebreak  <= 1'b0;
+        o_pc      <= 32'b0;
+    end else begin
+        case (cstate)
+          WAIT : begin
+            if((i_lsu_cnt === 4'b0) && wbu_mem_ready) begin
+              o_waddr   <= i_waddr;
+              o_wdata   <= i_wdata;
+              o_wbu_cnt <= i_wbu_cnt;
+              o_ebreak  <= i_ebreak;
+              o_pc      <= i_pc;
+            end else if (load && i_lsu_respValid) begin
+              o_waddr   <= i_waddr;
+              o_wdata   <= lsu_rdata;
+              o_wbu_cnt <= i_wbu_cnt;
+              o_ebreak  <= i_ebreak;
+              o_pc      <= i_pc;
+            end else if (store && i_lsu_respValid) begin
+              o_waddr   <= 4'b0;  // store不写寄存器
+              o_wdata   <= 32'b0;
+              o_wbu_cnt <= i_wbu_cnt;
+              o_ebreak  <= i_ebreak;
+              o_pc      <= i_pc;
+            end
+          end
+          default: begin
+          end
+        endcase
+    end
+end
+
+	assign temp  = (i_lsu_respValid && load) ? i_lsu_rdata : 32'b0;
+
+	reg [7:0] byte_sel;
+	always @(*) begin
+		case (i_lsu_addr[1:0]) 
+			2'b00 : byte_sel = temp[ 7: 0] ;
+			2'b01 : byte_sel = temp[15: 8] ;
+			2'b10 : byte_sel = temp[23:16] ;
+			2'b11 : byte_sel = temp[31:24] ;
+		endcase
+	end
+
+	reg [15:0] half_sel;
+	always @(*) begin
+		case (i_lsu_addr[1])
+			1'b0 : half_sel = temp[15: 0] ;
+			1'b1 : half_sel = temp[31:16] ;
+		endcase
+	end
+
+	assign lsu_rdata = (i_lsu_cnt == 4'b0100) ? {{24{byte_sel[ 7]}}, byte_sel} : // lb
+										 (i_lsu_cnt == 4'b0101) ? {{16{half_sel[15]}}, half_sel} : // lh
+										 (i_lsu_cnt == 4'b0110) ? temp 												   : // lw
+										 (i_lsu_cnt == 4'b0111) ? {24'b0         		 , byte_sel} : // lbu
+										 (i_lsu_cnt == 4'b1000) ? {16'b0				 		 , half_sel} : // lhu
+										 32'b0 ; 
+
+endmodule
+
+
+module ysyx_24080018_GPR(
+  input         clk,
+  input         reset,
+
+  input         mem_wbu_valid,
+  output        wbu_mem_ready,
+	output				wbu_ifu_retire,
+
+  output [31:0] rdata1,
+  output [31:0] rdata2,
+
+  input  [ 3:0] raddr1,
+  input  [ 3:0] raddr2,
+  input  [ 3:0] i_waddr,
+  input  [31:0] i_wdata,
+  input  [31:0] i_pc,
+  input         i_ebreak,
+  input         i_wbu_cnt
+);
+  
+  localparam IDLE = 1'b0;
+	localparam WAIT = 1'b1;
+  
+  reg cstate, nstate;
+  reg [31:0] rf [0:15];
+  
+  assign wbu_mem_ready = cstate === IDLE;
+
+  assign rdata1 = (raddr1 == 4'b0) ? 32'b0 : rf[raddr1];
+  assign rdata2 = (raddr2 == 4'b0) ? 32'b0 : rf[raddr2];
+
+	wire wen;
+  assign wen = i_wbu_cnt && mem_wbu_valid;
+	assign wbu_ifu_retire = (mem_wbu_valid && wbu_mem_ready);
+
+  always @(posedge clk) begin
+    if(reset) begin
+      cstate <= IDLE;
+    end else begin
+      cstate <= nstate;
+    end
+  end
+
+  always @(*) begin
+    case (cstate)
+      IDLE : begin
+        if(mem_wbu_valid) begin
+          nstate = WAIT;    
+				end else begin
+          nstate = IDLE;       
+        end
+      end
+			WAIT : begin
+				nstate = IDLE;
+			end
+      default: begin
+        nstate = IDLE;
+      end
+    endcase
+  end
+
+  always @(posedge clk) begin
+    if(reset) begin 
+      for(integer i = 1; i < 16; i = i + 1) begin
+        rf[i] <= 32'b0;
+      end
+    end else begin
+			if(wbu_mem_ready && mem_wbu_valid ) begin
+				if(wen && (i_waddr != 4'b0)) begin
+					rf[i_waddr] <= i_wdata;
+				end 
+			end
+    end
+  end
+
+endmodule
+
+module ysyx_24080018_CSR(
+  input         exu_csr_valid,
+  output        csr_exu_ready,
+	output				csr_ifu_retire,
+
+  input         clk,
+  input         reset,
+  input  [ 2:0] i_csr_cnt,
+  input  [11:0] i_csr_imm,
+  input  [31:0] i_wdata,
+  output [31:0] o_rdata
+);
+
+  localparam IDLE = 1'b0;
+	localparam WAIT = 1'b1;
+  reg cstate, nstate;
+
+  reg [31:0] mcycle   ;
+  reg [31:0] mcycleh  ;
+  reg [31:0] mvendorid;
+  reg [31:0] marchid  ;
+
+  wire [31:0] temp;
+
+  assign csr_exu_ready  = (cstate == IDLE);
+	assign csr_ifu_retire = (csr_exu_ready && exu_csr_valid);
+
+	assign o_rdata = temp;
+  assign temp = ( i_csr_imm == 12'hb00 ) ? mcycle    :
+                ( i_csr_imm == 12'hb80 ) ? mcycleh   :
+								( i_csr_imm == 12'hf11 ) ? mvendorid :
+                ( i_csr_imm == 12'hf12 ) ? marchid   :
+                32'b0;
+
+  always @(posedge clk) begin
+    if(reset) begin
+      cstate <= IDLE;
+    end else begin
+      cstate <= nstate;
+    end
+  end
+
+  always @(*) begin
+    case (cstate)
+      IDLE : begin
+        if(exu_csr_valid) begin
+          nstate = WAIT;
+        end else begin
+          nstate = IDLE;     
+        end
+      end
+      WAIT : begin
+        nstate = IDLE;   
+      end
+    endcase
+  end
+
+  always @(posedge clk) begin
+    if(reset) begin
+      mcycle    <= 32'b0;
+      mcycleh   <= 32'b0;
+      mvendorid <= 32'h79737978 ;
+      marchid   <= 32'h16F6E92  ;
+    end else begin
+      case (cstate)
+        IDLE : begin
+          if(i_csr_cnt == 3'b010) begin // csrrs
+            case (i_csr_imm)
+              12'hb00 : mcycle    <= temp | i_wdata;
+              12'hb80 : mcycleh   <= temp | i_wdata;
+              12'hf11 : mvendorid <= temp | i_wdata;
+              12'hf12 : marchid   <= temp | i_wdata;
+              default : ; 
+            endcase
+          end else if (i_csr_cnt == 3'b001) begin // csrrw
+            case (i_csr_imm)
+              12'hb00 : mcycle    <= i_wdata;
+              12'hb80 : mcycleh   <= i_wdata;
+              12'hf11 : mvendorid <= i_wdata;
+              12'hf12 : marchid   <= i_wdata;
+              default : ; 
+            endcase
+          end
+        end
+        WAIT : begin
+		//			$display("change csr");
+        end
+      endcase
+      
+      if (mcycle == 32'hffffffff) begin
+        mcycle  <= 32'b0;
+        mcycleh <= mcycleh + 32'b1;
+      end else begin
+        mcycle  <= mcycle + 32'b1;
+      end
+
+    end
+  end
+endmodule
