@@ -431,6 +431,42 @@ jobs:
         with:
           name: verilog
           path: ${{ steps.vfilename.outputs.VFILE }}
+          
+      - name: Replace student ID in ysyxSoCFull.v
+        run: |
+          echo "替换 ysyxSoCFull.v 中的学号..."
+          
+          # 文件路径
+          FILE_PATH="$YSYX_HOME/ysyxSoC/ready-to-run/D-stage/ysyxSoCFull.v"
+          
+          if [ ! -f "$FILE_PATH" ]; then
+            echo "❌ 文件不存在: $FILE_PATH"
+            echo "当前目录结构:"
+            find "$YSYX_HOME" -name "ysyxSoCFull.v" 2>/dev/null
+            exit 1
+          fi
+          
+          echo "原始文件: $FILE_PATH"
+          echo "学号: $STUID"
+          
+          # 备份原文件
+          cp "$FILE_PATH" "$FILE_PATH.bak"
+          
+          # 替换 ysyx_00000000 为 ysyx_学号
+          sed -i "s/ysyx_00000000/ysyx_$STUID/g" "$FILE_PATH"
+          
+          echo "✅ 替换完成"
+          
+          # 验证替换
+          echo -e "\n=== 验证替换结果 ==="
+          echo "匹配行数:"
+          grep -c "ysyx_$STUID" "$FILE_PATH"
+          
+          echo -e "\n示例行:"
+          grep "ysyx_$STUID" "$FILE_PATH" | head -5
+          
+          echo -e "\n原始文件备份在: $FILE_PATH.bak"
+
 
   hello:
     needs: setup
