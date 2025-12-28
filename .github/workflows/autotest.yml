@@ -317,7 +317,25 @@ jobs:
       #   run: |
       #     touch $NPC_HOME/.timestamp
       #     make -C $NPC_HOME verilog
-
+      - name: Debug before check
+        run: |
+          echo "=== 调试信息 ==="
+          echo "NPC_HOME: $NPC_HOME"
+          echo "STUID: $STUID"
+          echo "当前目录: $(pwd)"
+          
+          echo -e "\n=== 目录结构 ==="
+          ls -la $NPC_HOME/
+          
+          echo -e "\n=== build 目录 ==="
+          ls -la $NPC_HOME/build/ 2>/dev/null || echo "build/ 不存在"
+          
+          echo -e "\n=== 所有 Verilog 文件 ==="
+          find $NPC_HOME -name "*.v" -o -name "*.sv" 2>/dev/null | head -20
+          
+          echo -e "\n=== .timestamp 文件 ==="
+          ls -la $NPC_HOME/.timestamp 2>/dev/null || echo ".timestamp 不存在"
+          
       - name: Check verilog file name
         if: steps.cache-dir.outputs.cache-hit != 'true'
         id: vfilename
