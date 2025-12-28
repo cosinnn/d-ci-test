@@ -44,8 +44,8 @@ extern "C" void flash_read(int32_t addr, int32_t *data) {
 
     //rintf("[flash_read] addr = 0x%08x, data = 0x%08x\n", addr, *data);
 }
-void disassemble(char *str,int size,uint64_t pc,uint8_t *code,int nbyte);
-void init_disasm();
+// void disassemble(char *str,int size,uint64_t pc,uint8_t *code,int nbyte);
+// void init_disasm();
 // void log_mem_access(Vtop* top) {
 //     if (top->do_memread) {
 //         fprintf(itrace_fp, "[MEM-READ ] addr=0x%08x data=0x%08x\n",
@@ -110,7 +110,7 @@ int main(int argc, char** argv, char** env) {
         printf("argv[%d] = %s\n", i, argv[i]);
     }
    // printf("MAINARGS = %s\n",MAINARGS);
-    init_disasm();
+    // init_disasm();
     //itrace_fp = fopen("/home/huang/ysyx-workbench/am-kernels/tests/cpu-tests/build/npc-log.txt", "w");
     //printf("itrace_fp = %p\n", (void *)itrace_fp); 
     //assert(itrace_fp);

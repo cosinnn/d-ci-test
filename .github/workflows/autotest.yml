@@ -467,25 +467,25 @@ jobs:
           
           echo -e "\n原始文件备份在: $FILE_PATH.bak"
 
-      - name: Install Capstone
-        run: |
-          echo "安装 Capstone 反汇编库..."
-          
-          # Ubuntu/Debian
-          sudo apt-get update
-          sudo apt-get install -y libcapstone-dev
-          
-          # 验证安装
-          echo "验证安装:"
-          pkg-config --modversion capstone 2>/dev/null || echo "使用 pkg-config 检查失败"
-          
-          # 查找头文件
-          echo "查找 capstone.h:"
-          find /usr -name "capstone.h" 2>/dev/null | head -5
-          
-          # 查找库文件
-          echo "查找 libcapstone:"
-          find /usr -name "*capstone*" 2>/dev/null | head -10
+#      - name: Install Capstone
+#        run: |
+#          echo "安装 Capstone 反汇编库..."
+#          
+#          # Ubuntu/Debian
+#          sudo apt-get update
+#          sudo apt-get install -y libcapstone-dev
+#          
+#          # 验证安装
+#          echo "验证安装:"
+#          pkg-config --modversion capstone 2>/dev/null || echo "使用 pkg-config 检查失败"
+#          
+#          # 查找头文件
+#          echo "查找 capstone.h:"
+#          find /usr -name "capstone.h" 2>/dev/null | head -5
+#          
+#          # 查找库文件
+#          echo "查找 libcapstone:"
+#          find /usr -name "*capstone*" 2>/dev/null | head -10
 
   hello:
     needs: setup
