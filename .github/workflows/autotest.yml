@@ -312,11 +312,24 @@ jobs:
           sh -c "curl -L https://github.com/com-lihaoyi/mill/releases/download/$MILL_VERSION/$MILL_VERSION > ~/.local/bin/mill && chmod +x ~/.local/bin/mill"
           mill --version
 
-      # - name: Generate verilog for NPC #验证生成verilog
-      #   if: steps.cache-dir.outputs.cache-hit != 'true'
-      #   run: |
-      #     touch $NPC_HOME/.timestamp
-      #     make -C $NPC_HOME verilog
+#      - name: Generate verilog for NPC #chisel生成verilog
+#        if: steps.cache-dir.outputs.cache-hit != 'true'
+#        run: |
+#          touch $NPC_HOME/.timestamp
+#          make -C $NPC_HOME verilog
+
+      - name: verilog for NPC to build #verilog转移
+        if: steps.cache-dir.outputs.cache-hit != 'true'
+        run: |
+          mkdir -p $NPC_HOME/build
+          find $NPC_HOME -name "*.v" -o -name "*.sv" 2>/dev/null | while read file; do
+              # 获取文件名
+              filename=$(basename "$file")
+              # 复制文件
+              cp "$file" "$NPC_HOME/build/"
+              echo "✅ 已复制: $file → $NPC_HOME/build/$filename"
+          done
+
       - name: Debug before check
         run: |
           echo "=== 调试信息 ==="
