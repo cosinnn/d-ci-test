@@ -321,14 +321,29 @@ jobs:
       - name: verilog for NPC to build #verilog转移
         if: steps.cache-dir.outputs.cache-hit != 'true'
         run: |
+          set -e  # 出错时停止
           mkdir -p $NPC_HOME/build
-          find $NPC_HOME -name "*.v" -o -name "*.sv" 2>/dev/null | while read file; do
-              # 获取文件名
+          
+          echo "开始复制 Verilog 文件..."
+          
+          # 查找文件
+          files=$(find $NPC_HOME -name "*.v" -o -name "*.sv" 2>/dev/null)
+          if [ -z "$files" ]; then
+            echo "❌ 未找到任何 Verilog 文件"
+            exit 1
+          fi
+          
+          # 复制文件
+          count=0
+          echo "$files" | while read file; do
               filename=$(basename "$file")
-              # 复制文件
               cp "$file" "$NPC_HOME/build/"
               echo "✅ 已复制: $file → $NPC_HOME/build/$filename"
+              ((count++))
           done
+          
+          echo "✅ 复制完成，共复制 $count 个文件"
+          ls -la $NPC_HOME/build/
 
       - name: Debug before check
         run: |
