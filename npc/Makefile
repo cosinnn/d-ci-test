@@ -37,7 +37,8 @@ CSRCS = $(shell find $(abspath ./csrc) -name "*.c" -or -name "*.cc" -or -name "*
 
 
 INCFLAGS = $(addprefix -I, $(INC_PATH))
-CXXFLAGS += $(INCFLAGS) -I $(YSYX_HOME)/nemu/tools/capstone/repo/include -DTOP_NAME="\"V$(TOPNAME)\""
+CXXFLAGS += $(INCFLAGS) -DTOP_NAME="\"V$(TOPNAME)\""
+# CXXFLAGS += $(INCFLAGS) -I $(YSYX_HOME)/nemu/tools/capstone/repo/include -DTOP_NAME="\"V$(TOPNAME)\""
 # LDFLAGS += -L $(YSYX_HOME)/nemu/tools/capstone/repo/ -lcapstone -lSDL2 -lSDL2_image
 LDFLAGS += -lSDL2 -lSDL2_image
 
