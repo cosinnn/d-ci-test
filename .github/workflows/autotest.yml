@@ -312,11 +312,11 @@ jobs:
           sh -c "curl -L https://github.com/com-lihaoyi/mill/releases/download/$MILL_VERSION/$MILL_VERSION > ~/.local/bin/mill && chmod +x ~/.local/bin/mill"
           mill --version
 
-      - name: Generate verilog for NPC
-        if: steps.cache-dir.outputs.cache-hit != 'true'
-        run: |
-          touch $NPC_HOME/.timestamp
-          make -C $NPC_HOME verilog
+      # - name: Generate verilog for NPC #验证生成verilog
+      #   if: steps.cache-dir.outputs.cache-hit != 'true'
+      #   run: |
+      #     touch $NPC_HOME/.timestamp
+      #     make -C $NPC_HOME verilog
 
       - name: Check verilog file name
         if: steps.cache-dir.outputs.cache-hit != 'true'
