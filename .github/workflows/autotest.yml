@@ -432,42 +432,7 @@ jobs:
           name: verilog
           path: ${{ steps.vfilename.outputs.VFILE }}
 
-  # hello:
-  #   needs: setup
-  #   runs-on: ubuntu-22.04
-  #   steps:
-  #     - uses: actions/checkout@v4
-  #       with:
-  #         fetch-depth: 0
-
-  #     - name: Common operations
-  #       uses: ./.github/actions/common
-  #       with:
-  #         YSYX_HOME: ${{ needs.setup.outputs.YSYX_HOME }}
-  #         cache-key: ${{ needs.setup.outputs.cache-key }}
-  #         MAKEFLAGS: ${{ needs.setup.outputs.MAKEFLAGS }}
-
-  #     - name: Debug monitor.py
-  #       run: |
-  #         echo "=== 调试信息 ==="
-  #         pwd
-  #         ls -la
-          
-  #         echo -e "\n=== 查找 monitor.py ==="
-  #         find . -name "monitor.py" 2>/dev/null
-          
-  #         echo -e "\n=== 环境变量 ==="
-  #         env | grep -i "monitor\|ysyx"
-          
-  #         echo -e "\n=== 检查 YSYX_HOME ==="
-  #         ls -la "$YSYX_HOME/" 2>/dev/null | head -10
-
-  #     - name: hello
-  #       run: |
-  #         KEY=$(head -c 5 /dev/urandom | base32)
-  #         python $MONITOR_PY --middle="Hello, AbstractMachine!" --good=$KEY make ARCH=riscv32e-ysyxsoc -C $YSYX_HOME/am-kernels/kernels/hello run mainargs=$KEY
-
-  cpu-tests:
+  hello:
     needs: setup
     runs-on: ubuntu-22.04
     steps:
@@ -482,10 +447,45 @@ jobs:
           cache-key: ${{ needs.setup.outputs.cache-key }}
           MAKEFLAGS: ${{ needs.setup.outputs.MAKEFLAGS }}
 
-      - name: cpu-tests
+      - name: Debug monitor.py
         run: |
-          make ARCH=riscv32e-ysyxsoc -C $YSYX_HOME/am-kernels/tests/cpu-tests run ALL=dummy
-          make ARCH=riscv32e-ysyxsoc -C $YSYX_HOME/am-kernels/tests/cpu-tests run
+          echo "=== 调试信息 ==="
+          pwd
+          ls -la
+          
+          echo -e "\n=== 查找 monitor.py ==="
+          find . -name "monitor.py" 2>/dev/null
+          
+          echo -e "\n=== 环境变量 ==="
+          env | grep -i "monitor\|ysyx"
+          
+          echo -e "\n=== 检查 YSYX_HOME ==="
+          ls -la "$YSYX_HOME/" 2>/dev/null | head -10
+
+      - name: hello
+        run: |
+          KEY=$(head -c 5 /dev/urandom | base32)
+          python $MONITOR_PY --middle="Hello, AbstractMachine!" --good=$KEY make ARCH=riscv32e-ysyxsoc -C $YSYX_HOME/am-kernels/kernels/hello run mainargs=$KEY
+
+  # cpu-tests:
+  #   needs: setup
+  #   runs-on: ubuntu-22.04
+  #   steps:
+  #     - uses: actions/checkout@v4
+  #       with:
+  #         fetch-depth: 0
+
+  #     - name: Common operations
+  #       uses: ./.github/actions/common
+  #       with:
+  #         YSYX_HOME: ${{ needs.setup.outputs.YSYX_HOME }}
+  #         cache-key: ${{ needs.setup.outputs.cache-key }}
+  #         MAKEFLAGS: ${{ needs.setup.outputs.MAKEFLAGS }}
+
+  #     - name: cpu-tests
+  #       run: |
+  #         make ARCH=riscv32e-ysyxsoc -C $YSYX_HOME/am-kernels/tests/cpu-tests run ALL=dummy
+  #         make ARCH=riscv32e-ysyxsoc -C $YSYX_HOME/am-kernels/tests/cpu-tests run
 
   # riscv-tests:
   #   needs: setup
