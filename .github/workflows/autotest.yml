@@ -280,12 +280,12 @@ jobs:
           git clone --depth 1 -b no-gui https://github.com/NJU-ProjectN/nvboard
           git clone --depth 1 -b ysyx6 https://github.com/OSCPU/ysyxSoC
 
-          cd rt-thread-am
-          git am $YSYX_HOME/patch/rt-thread-am/*
-          cd $YSYX_HOME
-
-          cd ysyxSoC
-          git am $YSYX_HOME/patch/ysyxSoC/*
+#          cd rt-thread-am #应用补丁
+#          git am $YSYX_HOME/patch/rt-thread-am/*
+#          cd $YSYX_HOME
+#
+#          cd ysyxSoC
+#          git am $YSYX_HOME/patch/ysyxSoC/*
 
       - name: Clean up
         if: steps.cache-dir.outputs.cache-hit != 'true'
