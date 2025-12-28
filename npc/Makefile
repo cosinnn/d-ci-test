@@ -42,8 +42,8 @@ LDFLAGS += -L $(YSYX_HOME)/nemu/tools/capstone/repo/ -lcapstone -lSDL2 -lSDL2_im
 
 #IMAGE ?= $(YSYX_HOME)/npc/new2.bin
 #IMAGE ?= /home/huang/test_our/new.bin
-#IMAGE ?= $(YSYX_HOME)/ysyxSoC/ready-to-run/D-stage/hello-minirv-ysyxsoc.bin
-IMAGE ?= $(YSYX_HOME)/ysyxSoC/ready-to-run/D-stage/new.bin
+IMAGE ?= $(YSYX_HOME)/ysyxSoC/ready-to-run/D-stage/hello-minirv-ysyxsoc.bin
+# IMAGE ?= $(YSYX_HOME)/ysyxSoC/ready-to-run/D-stage/new.bin
 $(BIN): $(VSRCS) $(CSRCS) #$(NVBOARD_ARCHIVE)
 	@rm -rf $(OBJ_DIR)
 	$(VERILATOR) $(VERILATOR_CFLAGS) \

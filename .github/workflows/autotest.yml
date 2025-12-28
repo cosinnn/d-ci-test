@@ -465,7 +465,7 @@ jobs:
       - name: hello
         run: |
           KEY=$(head -c 5 /dev/urandom | base32)
-          python $MONITOR_PY --middle="Hello, AbstractMachine!" --good=$KEY make ARCH=riscv32e-ysyxsoc -C $YSYX_HOME/am-kernels/kernels/hello run mainargs=$KEY
+          python $MONITOR_PY --middle="Hello World!" --good=$KEY make ARCH=riscv32e-ysyxsoc -C $YSYX_HOME/npc run mainargs=$KEY
 
   # cpu-tests:
   #   needs: setup
