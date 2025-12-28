@@ -335,24 +335,26 @@ jobs:
           
           echo -e "\n=== .timestamp 文件 ==="
           ls -la $NPC_HOME/.timestamp 2>/dev/null || echo ".timestamp 不存在"
-          
-      - name: verilog for NPC to build
+
+      - name: Copy first Verilog file to build
         if: steps.cache-dir.outputs.cache-hit != 'true'
         run: |
-          set -e
           mkdir -p $NPC_HOME/build
           
-          echo "开始复制 Verilog 文件..."
+          # 查找第一个文件
+          first_file=$(find $NPC_HOME -name "*.v" -o -name "*.sv" 2>/dev/null | head -1)
           
-          # 直接使用 find 的 -exec
-          count=$(find $NPC_HOME -name "*.v" -o -name "*.sv" 2>/dev/null -exec cp {} $NPC_HOME/build/ \; -exec echo "✅ 已复制: {}" \; | wc -l)
-          
-          if [ "$count" -eq 0 ]; then
+          if [ -z "$first_file" ]; then
             echo "❌ 未找到任何 Verilog 文件"
             exit 1
           fi
           
-          echo "✅ 复制完成，共复制 $count 个文件"
+          echo "找到文件: $first_file"
+          cp "$first_file" $NPC_HOME/build/
+          echo "✅ 已复制: $(basename "$first_file")"
+          
+          # 验证
+          echo "build 目录内容:"
           ls -la $NPC_HOME/build/
 
       - name: Debug before check
