@@ -68,18 +68,7 @@ sim: $(BIN)
 # 修改 run 规则
 run: $(BIN) build-test
 	@echo "Running simulation..."
-ifdef ALL
-ifeq ($(ALL),hello)
-	@echo "Using hello program"
-	./$(BIN) $(HELLO_IMAGE) +trace
-else
-	@echo "Using newly built program: $(ALL)"
-	./$(BIN) $(NEW_IMAGE) +trace
-endif
-else
-	@echo "No ALL specified, using default hello program"
-	./$(BIN) $(IMAGE) +trace
-endif
+	./$(BIN) $(IMG) +trace
 	
 clean:
 	rm -rf $(BUILD_DIR) wave.vcd
