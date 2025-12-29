@@ -467,6 +467,50 @@ jobs:
           
           echo -e "\n原始文件备份在: $FILE_PATH.bak"
 
+      - name: Fix permissions for minirv tools
+        run: |
+          echo "修复 minirv 工具链权限..."
+          
+          MINIRV_DIR="$YSYX_HOME/abstract-machine/tools/minirv"
+          
+          if [ ! -d "$MINIRV_DIR" ]; then
+            echo "❌ 目录不存在: $MINIRV_DIR"
+            echo "当前目录结构:"
+            find "$YSYX_HOME" -name "*minirv*" 2>/dev/null | head -10
+            exit 1
+          fi
+          
+          echo "minirv 工具目录: $MINIRV_DIR"
+          ls -la "$MINIRV_DIR/"
+          
+          # 要修复的文件
+          FILES=("minirv-gcc" "minirv-g++" "minirv-common.sh")
+          
+          for file in "${FILES[@]}"; do
+            FILE_PATH="$MINIRV_DIR/$file"
+            
+            if [ -f "$FILE_PATH" ]; then
+              echo -e "\n处理: $file"
+              echo "当前权限:"
+              ls -la "$FILE_PATH"
+              
+              # 添加执行权限
+              chmod +x "$FILE_PATH"
+              
+              echo "修复后权限:"
+              ls -la "$FILE_PATH"
+              
+              # 验证
+              if [ -x "$FILE_PATH" ]; then
+                echo "✅ 执行权限已添加"
+              else
+                echo "❌ 添加权限失败"
+              fi
+            else
+              echo "❌ 文件不存在: $FILE_PATH"
+            fi
+          done
+          
 #      - name: Install Capstone
 #        run: |
 #          echo "安装 Capstone 反汇编库..."
@@ -551,7 +595,7 @@ jobs:
           if grep -qi "hello" "$LOGFILE"; then
             echo "✅ 成功：检测到预期的'hello'输出"
             echo "=== 包含hello的输出行 ==="
-            grep -i "Hello World!" "$LOGFILE"
+            grep -i "hello" "$LOGFILE"
             rm -f "$LOGFILE"
             exit 0
           else
