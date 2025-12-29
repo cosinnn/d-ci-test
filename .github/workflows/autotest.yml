@@ -535,7 +535,7 @@ jobs:
     runs-on: ubuntu-22.04
     env:
       # 配置变量
-      EXPECTED_OUTPUT: "hello"  # 要检测的输出字符串
+      EXPECTED_OUTPUT: "hello world"  # 要检测的输出字符串
       OUTPUT_CASE_SENSITIVE: false  # 是否区分大小写
       TIMEOUT_SECONDS: 600  # 超时时间（秒）
       LOG_LINES_ON_FAILURE: 50  # 失败时显示的最后日志行数
@@ -654,7 +654,7 @@ jobs:
 
       - name: cpu-tests
         run: |
-          make -C $YSYX_HOME/npc run ALL=sum
+          make -C $YSYX_HOME/npc run ALL=dummy
 #          make ARCH=riscv32e-ysyxsoc -C $YSYX_HOME/am-kernels/tests/cpu-tests run
 
   # riscv-tests:

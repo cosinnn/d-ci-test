@@ -761,13 +761,13 @@ module ysyx_25080202(
 
     wire [31:0] load_wdata;
     // `ifdef VERILATOR
-    // import "DPI-C" function void notify_ebreak();
-    // always @(posedge clock) begin
-    //     if (I_ebreak && $time > 0) begin
-    //         $display("[TRAP] EBREAK at PC = 0x%08x", PC);
-    //         notify_ebreak();
-    //     end
-    // end
+    import "DPI-C" function void notify_ebreak();
+    always @(posedge clock) begin
+        if (I_ebreak && $time > 0) begin
+            $display("[TRAP] EBREAK at PC = 0x%08x", PC);
+            notify_ebreak();
+        end
+    end
     // `endif
 
     ysyx_25080202_PC pc(
