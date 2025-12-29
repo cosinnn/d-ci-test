@@ -55,8 +55,8 @@ void     ioe_write   (int reg, void *buf);
 #include "amdev.h"
 
 // ---------- CTE: Interrupt Handling and Context Switching ----------
-bool     cte_init    (Context *(*handler)(Event ev, Context *ctx));
-void     yield       (void);
+bool     cte_init    (Context *(*handler)(Event ev, Context *ctx));//进行CTE相关的初始化操作
+void     yield       (void);//会触发一个编号为EVENT_YIELD事件
 bool     ienabled    (void);
 void     iset        (bool enable);
 Context *kcontext    (Area kstack, void (*entry)(void *), void *arg);

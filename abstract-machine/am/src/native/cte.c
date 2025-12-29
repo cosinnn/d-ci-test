@@ -159,7 +159,6 @@ void __am_init_timer_irq() {
 
 bool cte_init(Context*(*handler)(Event, Context*)) {
   user_handler = handler;
-
   install_signal_handler();
   __am_init_timer_irq();
   return true;

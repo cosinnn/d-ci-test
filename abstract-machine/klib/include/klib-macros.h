@@ -36,4 +36,6 @@
 
 #define panic(s) panic_on(1, s)
 
+# define npc_trap(code) asm volatile("mv a0, %0; ebreak" : :"r"(code))
+
 #endif
