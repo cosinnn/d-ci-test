@@ -71,8 +71,8 @@ run: $(BIN) build-test
 	./$(BIN) $(IMG) +trace
 	
 clean:
-	rm -rf $(BUILD_DIR) wave.vcd
-	
+	rm -rf $(YSYX_HOME)/npc/build
+
 clean-trace:
 
 clean-test:
