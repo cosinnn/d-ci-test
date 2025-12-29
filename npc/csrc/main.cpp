@@ -143,49 +143,86 @@ int main(int argc, char** argv, char** env) {
     }
     top->reset = 0;
 
-    while(!contextp->gotFinish()){ 
-        printf("(npc) ");
-        fflush(stdout);
-        if(fgets(cmd_buf,sizeof(cmd_buf),stdin) == NULL){
-            break;
-        }
-        cmd_buf[strcspn(cmd_buf, "\n")] = '\0';
+    // while(!contextp->gotFinish()){ 
+    //     printf("(npc) ");
+    //     fflush(stdout);
+    //     if(fgets(cmd_buf,sizeof(cmd_buf),stdin) == NULL){
+    //         break;
+    //     }
+    //     cmd_buf[strcspn(cmd_buf, "\n")] = '\0';
         
-        if (simulation_finished &&
-            (strncmp(cmd_buf, "si", 2) == 0 || strcmp(cmd_buf, "c") == 0)) {
-            printf("Program execution has ended. To restart the program, exit NPC and run again.\n");
-            continue;          // 忽略 si / c
-        }
+    //     if (simulation_finished &&
+    //         (strncmp(cmd_buf, "si", 2) == 0 || strcmp(cmd_buf, "c") == 0)) {
+    //         printf("Program execution has ended. To restart the program, exit NPC and run again.\n");
+    //         continue;          // 忽略 si / c
+    //     }
 
-        if(strcmp(cmd_buf,"q") == 0){
-            break;
-        }else if(strncmp(cmd_buf,"si",2) == 0){
-            int n = 1;
-            sscanf(cmd_buf,"si %d",&n);
-            for(int i =0;i<n && !simulation_finished;i++)
-            {
+    //     if(strcmp(cmd_buf,"q") == 0){
+    //         break;
+    //     }else if(strncmp(cmd_buf,"si",2) == 0){
+    //         int n = 1;
+    //         sscanf(cmd_buf,"si %d",&n);
+    //         for(int i =0;i<n && !simulation_finished;i++)
+    //         {
 
                 
-                // char disasm_output [128];
-                // uint32_t inst = top->inst;
-                // uint8_t code[4];
-                // code[0] = inst & 0xff;
-                // code[1] = (inst >> 8) & 0xff;
-                // code[2] = (inst >> 16) & 0xff;
-                // code[3] = (inst >> 24) & 0xff;
-                // disassemble(disasm_output,sizeof(disasm_output),top->PC,code,4);
-                // printf("0x%08x: 0x%08x %s\n",top->PC,top->inst,disasm_output);
-                // fprintf(itrace_fp, "0x%08x: 0x%08x %s\n", top->PC, top->inst, disasm_output);
-                // fflush(itrace_fp);   /* 强制把缓冲区刷到磁盘，先调试用 */
-                //printf("[itrace] write pc=0x%08x\n", top->PC);  /* 终端能看到就说明确实执行了 */
-                //log_mem_access(top);
-                single_step(top,contextp);//,tfp);
-            }
-            // printf("PC   = 0x%08x\n",top->PC);
-            // printf("inst = 0x%08x\n",top->inst);
-            check_trap(top);
-        }else if(strcmp(cmd_buf,"c") == 0)
-        {
+    //             // char disasm_output [128];
+    //             // uint32_t inst = top->inst;
+    //             // uint8_t code[4];
+    //             // code[0] = inst & 0xff;
+    //             // code[1] = (inst >> 8) & 0xff;
+    //             // code[2] = (inst >> 16) & 0xff;
+    //             // code[3] = (inst >> 24) & 0xff;
+    //             // disassemble(disasm_output,sizeof(disasm_output),top->PC,code,4);
+    //             // printf("0x%08x: 0x%08x %s\n",top->PC,top->inst,disasm_output);
+    //             // fprintf(itrace_fp, "0x%08x: 0x%08x %s\n", top->PC, top->inst, disasm_output);
+    //             // fflush(itrace_fp);   /* 强制把缓冲区刷到磁盘，先调试用 */
+    //             //printf("[itrace] write pc=0x%08x\n", top->PC);  /* 终端能看到就说明确实执行了 */
+    //             //log_mem_access(top);
+    //             single_step(top,contextp);//,tfp);
+    //         }
+    //         // printf("PC   = 0x%08x\n",top->PC);
+    //         // printf("inst = 0x%08x\n",top->inst);
+    //         check_trap(top);
+    //     }else if(strcmp(cmd_buf,"c") == 0)
+    //     {
+    //         while(!simulation_finished){
+
+    //             // char disasm_output [128];
+    //             // uint32_t inst = top->inst;
+    //             // uint8_t code[4];
+    //             // code[0] = inst & 0xff;
+    //             // code[1] = (inst >> 8) & 0xff;
+    //             // code[2] = (inst >> 16) & 0xff;
+    //             // code[3] = (inst >> 24) & 0xff;
+    //             // disassemble(disasm_output,sizeof(disasm_output),top->PC,code,4);
+    //             // printf("0x%08x: 0x%08x %s\n",top->PC,top->inst,disasm_output);
+    //             // fprintf(itrace_fp, "0x%08x: 0x%08x %s\n", top->PC, top->inst, disasm_output);
+    //             // fflush(itrace_fp);
+    //             //log_mem_access(top);
+    //             single_step(top,contextp);//,tfp);
+    //         }
+    //         check_trap(top);
+    //     }else if(strcmp(cmd_buf,"info r") == 0) {
+    //         //printf("PC = 0x%08x\n", top->PC);
+    //         scan_registers();            
+    //     }else if (strncmp(cmd_buf,"x",1)==0)
+    //     {
+    //         int N =0;
+    //         uint32_t addr =0;
+    //         if(sscanf(cmd_buf,"x %d %x",&N,&addr) == 2) {
+    //             for(int i =0;i<N;i++){
+    //                 uint32_t cur_addr = addr + i*4;
+    //                 uint32_t data = pmem_read(cur_addr);
+    //                 printf("0x%08x: 0x%08x\n", cur_addr, data);
+    //             }
+    //         }else {
+    //             printf("Usage: x N ADDR\n");
+    //         }
+    //     } else {
+    //         printf("Unknown command: %s\n", cmd_buf);
+    //     }
+    // }
             while(!simulation_finished){
 
                 // char disasm_output [128];
@@ -203,26 +240,7 @@ int main(int argc, char** argv, char** env) {
                 single_step(top,contextp);//,tfp);
             }
             check_trap(top);
-        }else if(strcmp(cmd_buf,"info r") == 0) {
-            //printf("PC = 0x%08x\n", top->PC);
-            scan_registers();            
-        }else if (strncmp(cmd_buf,"x",1)==0)
-        {
-            int N =0;
-            uint32_t addr =0;
-            if(sscanf(cmd_buf,"x %d %x",&N,&addr) == 2) {
-                for(int i =0;i<N;i++){
-                    uint32_t cur_addr = addr + i*4;
-                    uint32_t data = pmem_read(cur_addr);
-                    printf("0x%08x: 0x%08x\n", cur_addr, data);
-                }
-            }else {
-                printf("Usage: x N ADDR\n");
-            }
-        } else {
-            printf("Unknown command: %s\n", cmd_buf);
-        }
-    }
+
     //fclose(itrace_fp);
     printf("Total cycles: %llu\n", (unsigned long long)count);//计算周期数用的，可删
     delete top;
