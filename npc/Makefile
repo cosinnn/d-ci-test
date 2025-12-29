@@ -72,6 +72,8 @@ run: $(BIN) build-test
 	
 clean:
 	rm -rf $(BUILD_DIR) wave.vcd
+	
+clean-trace:
 
 clean-test:
 	cd $(YSYX_HOME)/am-kernels/tests/cpu-tests && make clean
