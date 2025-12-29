@@ -3,19 +3,20 @@ AM_SRCS := riscv/npc/start.S \
            riscv/npc/ioe.c \
            riscv/npc/timer.c \
            riscv/npc/input.c \
+		   riscv/npc/gpu.c \
            riscv/npc/cte.c \
            riscv/npc/trap.S \
            platform/dummy/vme.c \
            platform/dummy/mpe.c
-
 CFLAGS    += -fdata-sections -ffunction-sections
 LDSCRIPTS += $(AM_HOME)/scripts/linker.ld
 LDFLAGS   += --defsym=_pmem_start=0x80000000 --defsym=_entry_offset=0x0
 LDFLAGS   += --gc-sections -e _start
-
+IMG := $(abspath $(IMAGE).bin)
+ELF := $(abspath $(IMAGE).elf)
 MAINARGS_MAX_LEN = 64
-MAINARGS_PLACEHOLDER = the_insert-arg_rule_in_Makefile_will_insert_mainargs_here 
-CFLAGS += -DMAINARGS_MAX_LEN=$(MAINARGS_MAX_LEN) -DMAINARGS_PLACEHOLDER=$(MAINARGS_PLACEHOLDER) -DMAINARGS=$(mainargs)
+MAINARGS_PLACEHOLDER = the_insert-arg_rule_in_Makefile_will_insert_mainargs_here
+CFLAGS += -DMAINARGS_MAX_LEN=$(MAINARGS_MAX_LEN) -DMAINARGS_PLACEHOLDER=$(MAINARGS_PLACEHOLDER)
 
 insert-arg: image
 	@python3 $(AM_HOME)/tools/insert-arg.py $(IMAGE).bin $(MAINARGS_MAX_LEN) $(MAINARGS_PLACEHOLDER) "$(mainargs)"
@@ -45,8 +46,11 @@ $(IMAGE_BIN): $(IMAGE).elf $(HELLO_TEMPLATE)
 image: $(IMAGE_BIN)
 	@$(OBJDUMP) -d $(IMAGE).elf > $(IMAGE).txt
 
-NPC_BIN ?= /home/huang/ysyx-workbench/npc/build/top
 run: insert-arg
-	$(NPC_BIN) $(IMAGE).bin
-.PHONY: insert-argrg
+	$(MAKE) -C $(NPC_HOME) clean-trace
+	$(MAKE) -C $(NPC_HOME) clean
+	$(MAKE) -C $(NPC_HOME) ISA=$(ISA) run IMG=$(IMG) ELF=$(ELF)
+	$(info [DEBUG] IMG = $(IMG))
+
+.PHONY: insert-arg
 
