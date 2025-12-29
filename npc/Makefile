@@ -12,6 +12,12 @@ BUILD_DIR = ./build
 OBJ_DIR = $(BUILD_DIR)/obj_dir
 BIN = $(BUILD_DIR)/$(TOPNAME)   
 
+# 定义测试程序路径
+HELLO_IMAGE = $(YSYX_HOME)/ysyxSoC/ready-to-run/D-stage/hello-minirv-ysyxsoc.bin
+NEW_IMAGE = $(YSYX_HOME)/ysyxSoC/ready-to-run/D-stage/new.bin
+# 默认使用 hello 程序
+IMAGE ?= $(HELLO_IMAGE)
+
 default: $(BIN)
 
 $(shell mkdir -p $(BUILD_DIR))  
@@ -21,52 +27,65 @@ $(shell mkdir -p $(BUILD_DIR))
 # 	python3 $(NVBOARD_HOME)/scripts/auto_pin_bind.py $^ $@ 
 #$(YSYX_HOME)/npc/vsrc -name "*.v"
 # project source
-##VSRCS = $(shell find $(abspath ./vsrc) -name "*.v") \
-		$(shell find $(abspath ../ysyxSoC/perip) -name "*.v") \
-		$(shell find $(abspath $(YSYX_HOME)/ysyxSoC/ready-to-run/D-stage) -name "*.v")
 VSRCS = $(shell find $(YSYX_HOME)/npc/vsrc -name "*.v") \
         $(shell find $(YSYX_HOME)/ysyxSoC/perip -name "*.v") \
         $(shell find $(YSYX_HOME)/ysyxSoC/ready-to-run/D-stage -name "*.v")
 
 CSRCS = $(shell find $(abspath ./csrc) -name "*.c" -or -name "*.cc" -or -name "*.cpp") 
-# 所有c++文件，其实就是sim_main.cpp和auto_bind.cpp
-#CSRCS += $(SRC_AUTO_BIND)
-
-
-#include $(NVBOARD_HOME)/scripts/nvboard.mk 
-
 
 INCFLAGS = $(addprefix -I, $(INC_PATH))
 CXXFLAGS += $(INCFLAGS) -DTOP_NAME="\"V$(TOPNAME)\""
-# CXXFLAGS += $(INCFLAGS) -I $(YSYX_HOME)/nemu/tools/capstone/repo/include -DTOP_NAME="\"V$(TOPNAME)\""
-# LDFLAGS += -L $(YSYX_HOME)/nemu/tools/capstone/repo/ -lcapstone -lSDL2 -lSDL2_image
 LDFLAGS += -lSDL2 -lSDL2_image
 
-#IMAGE ?= $(YSYX_HOME)/npc/new2.bin
-#IMAGE ?= /home/huang/test_our/new.bin
-IMAGE ?= $(YSYX_HOME)/ysyxSoC/ready-to-run/D-stage/hello-minirv-ysyxsoc.bin
-# IMAGE ?= $(YSYX_HOME)/ysyxSoC/ready-to-run/D-stage/new.bin
-$(BIN): $(VSRCS) $(CSRCS) #$(NVBOARD_ARCHIVE)
+# 构建测试程序的规则
+build-test:
+ifdef ALL
+ifeq ($(ALL),hello)
+	@echo "Using pre-built hello program"
+else
+	@echo "Building test program: $(ALL)"
+	cd $(YSYX_HOME)/am-kernels/tests/cpu-tests && \
+	make ARCH=minirv-npc ALL=$(ALL)
+	cd $(YSYX_HOME)/ysyxSoC/ready-to-run/D-stage && \
+	bash gen.sh $(YSYX_HOME)/am-kernels/tests/cpu-tests/build/$(ALL)-minirv-npc.elf
+endif
+endif
+
+$(BIN): $(VSRCS) $(CSRCS)
 	@rm -rf $(OBJ_DIR)
 	$(VERILATOR) $(VERILATOR_CFLAGS) \
 		--top-module $(TOPNAME) $^ \
 		$(addprefix -CFLAGS , $(CXXFLAGS)) $(addprefix -LDFLAGS , $(LDFLAGS)) \
 		--Mdir $(OBJ_DIR) --exe -o $(abspath $(BIN))
-all: default
-  
 
+all: default
 
 sim: $(BIN)
 	@$(call git_commit, "sim RTL") 
 	@echo "Running simulation with git commit..."
-	./build/top +trace  
+	./build/top +trace
 
-run: $(BIN)
+# 修改 run 规则
+run: $(BIN) build-test
+	@echo "Running simulation..."
+ifdef ALL
+ifeq ($(ALL),hello)
+	@echo "Using hello program"
+	./$(BIN) $(HELLO_IMAGE) +trace
+else
+	@echo "Using newly built program: $(ALL)"
+	./$(BIN) $(NEW_IMAGE) +trace
+endif
+else
+	@echo "No ALL specified, using default hello program"
 	./$(BIN) $(IMAGE) +trace
+endif
 	
 clean:
 	rm -rf $(BUILD_DIR) wave.vcd
 
-.PHONY: default all clean  sim  # 添加sim到伪目标列表
+clean-test:
+	cd $(YSYX_HOME)/am-kernels/tests/cpu-tests && make clean
+	rm -f $(NEW_IMAGE)
 
-
+.PHONY: default all clean sim run build-test clean-test
