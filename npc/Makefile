@@ -3,7 +3,7 @@ TOPNAME = ysyxSoCFull
 INC_PATH ?=
 
 VERILATOR = verilator
-VERILATOR_CFLAGS += -MMD --build --cc --trace  \
+VERILATOR_CFLAGS += --build --cc --trace  \
 				-O3 --x-assign fast --x-initial fast --noassert \
 				--timescale "1ns/1ns" --no-timing
 ## 新增：把两个 rtl 目录加入 Verilog 的 `include` 搜索路径	
@@ -64,6 +64,11 @@ sim: $(BIN)
 	@$(call git_commit, "sim RTL") 
 	@echo "Running simulation with git commit..."
 	./build/top +trace
+
+# # Icarus Verilog仿真目标
+# sim-iverilog: $(VSRCS)
+# 	iverilog -o $(BUILD_DIR)/simv -g2012 $(VSRCS) $(IVERILOG_FLAGS)
+# 	vvp $(BUILD_DIR)/simv +img=$(IMG)
 
 # 修改 run 规则
 run: $(BIN) build-test
