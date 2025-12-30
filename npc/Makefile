@@ -37,19 +37,19 @@ INCFLAGS = $(addprefix -I, $(INC_PATH))
 CXXFLAGS += $(INCFLAGS) -DTOP_NAME="\"V$(TOPNAME)\""
 LDFLAGS += -lSDL2 -lSDL2_image
 
-# 构建测试程序的规则
-build-test:
-ifdef ALL
-ifeq ($(ALL),hello)
-	@echo "Using pre-built hello program"
-else
-	@echo "Building test program: $(ALL)"
-	cd $(YSYX_HOME)/am-kernels/tests/cpu-tests && \
-	make ARCH=minirv-npc ALL=$(ALL)
-	cd $(YSYX_HOME)/ysyxSoC/ready-to-run/D-stage && \
-	bash gen.sh $(YSYX_HOME)/am-kernels/tests/cpu-tests/build/$(ALL)-minirv-npc.elf
-endif
-endif
+# # 构建测试程序的规则
+# build-test:
+# ifdef ALL
+# ifeq ($(ALL),hello)
+# 	@echo "Using pre-built hello program"
+# else
+# 	@echo "Building test program: $(ALL)"
+# 	cd $(YSYX_HOME)/am-kernels/tests/cpu-tests && \
+# 	make ARCH=minirv-npc ALL=$(ALL)
+# 	cd $(YSYX_HOME)/ysyxSoC/ready-to-run/D-stage && \
+# 	bash gen.sh $(YSYX_HOME)/am-kernels/tests/cpu-tests/build/$(ALL)-minirv-npc.elf
+# endif
+# endif
 
 $(BIN): $(VSRCS) $(CSRCS)
 	@rm -rf $(OBJ_DIR)
