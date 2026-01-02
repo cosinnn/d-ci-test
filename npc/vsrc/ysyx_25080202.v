@@ -109,7 +109,7 @@ module ysyx_25080202_EXU(
         end
 
         if (R_add | I_add | I_jalr | U_TYPE | S_TYPE | l_lbu|l_lw) begin 
-            ALU_OUT = A - B;
+            ALU_OUT = A + B;
         end else begin
             ALU_OUT = 0;
         end
